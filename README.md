@@ -49,27 +49,32 @@ If you need more consistency / guarantees / syncing after a late join, you may t
 
 ```rust
 // These 3 are needed for the `cache_get` macro
- use redhac::{cache_get, cache_get_from, cache_get_value};
- use redhac::{cache_put, cache_recv, CacheConfig, SizedCache};
+use redhac::{cache_get, cache_get_from, cache_get_value};
+use redhac::{cache_put, cache_recv, CacheConfig, SizedCache};
+
 #[tokio::main]
 async fn main() {
     let (_, mut cache_config) = CacheConfig::new();
+    
     // The cache name is used to reference the cache later on
     let cache_name = "my_cache";
     // We need to spawn a global handler for each cache instance.
     // Communication is done over channels.
     cache_config.spawn_cache(cache_name.to_string(), SizedCache::with_size(16), None);
+    
     // Cache keys can only be `String`s at the time of writing.
     let key = "myKey";
     // The value you want to cache must implement `serde::Serialize`.
     // The serialization of the values is done with `bincode`.
     let value = "myCacheValue".to_string();
+    
     // At this point, we need cloned values to make everything work nicely with networked
     // connections. If you only ever need a local cache, you might be better off with using the
     // `cached` crate directly and use references whenever possible.
     cache_put(cache_name.to_string(), key.to_string(), &cache_config, &value)
         .await
         .unwrap();
+    
     let res = cache_get!(
         // The type of the value we want to deserialize the value into
         String,
@@ -87,6 +92,7 @@ async fn main() {
     )
         .await
         .unwrap();
+    
     assert!(res.is_some());
     assert_eq!(res.unwrap(), value);
 }
