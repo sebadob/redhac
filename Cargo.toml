@@ -39,7 +39,7 @@ flate2 = "1.0.6"
 [dev-dependencies]
 criterion = "0.5"
 pretty_assertions = "1"
-tokio-test = "*"
+tokio-test = "0.4"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "tracing"] }
 
 [build-dependencies]
