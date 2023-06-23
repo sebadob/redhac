@@ -8,7 +8,7 @@ categories = ["caching"]
 keywords = ["async", "tokio", "cache", "embedded", "distributed"]
 description = "redhac - Rust Embedded Distributed HA Cache"
 readme = "README.md"
-#repository = ""
+repository = "https://github.com/sebadob/redhac"
 
 [dependencies]
 anyhow = "1.0"
