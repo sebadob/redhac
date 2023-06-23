@@ -1,0 +1,248 @@
+syntax = "proto3";
+
+package cache;
+
+// Contains the endpoints for managing the Cache in a HA Cluster to exchange and update values remotely
+service Cache {
+  // Inserts / Updates a value from remote in the local caching layer
+  rpc StreamValues(stream CacheRequest) returns (stream Ack) {}
+}
+
+message Ack {
+  oneof method {
+    GetAck get_ack = 1;
+    PutAck put_ack = 2;
+    DelAck del_ack = 3;
+    MgmtAck mgmt_ack = 4;
+    Error error = 5;
+  }
+}
+
+// A Cache key / value pair
+// Since it accepts any count of bytes as the value, it is generically working for any object, which can be serialized
+// manually.
+message CacheEntry {
+  string cache_name = 1;
+  string entry = 2;
+  bytes value = 3;
+}
+
+// The Cache Value being sent over the stream.
+message CacheRequest {
+  oneof method {
+    Get get = 1;
+    Put put = 2;
+    Insert insert = 3;
+    Del del = 4;
+    Remove remove = 5;
+    MgmtRequest mgmt_req = 6;
+  }
+}
+
+message Error {
+  string error = 1;
+}
+
+// GET message for a cache operation
+message Get {
+  string cache_name = 1;
+  string entry = 2;
+}
+
+// ACK for a successful GET
+message GetAck {
+  string cache_name = 1;
+  string entry = 2;
+  optional bytes value = 3;
+}
+
+// PUT message for a cache operation
+message Put {
+  string cache_name = 1;
+  string entry = 2;
+  bytes value = 3;
+  optional string req_id = 4;
+}
+
+// INSERT message for a cache operation
+message Insert {
+  string cache_name = 1;
+  string entry = 2;
+  bytes value = 3;
+  string req_id = 4;
+  AckLevel ack_level = 5;
+}
+
+// ACK for a successful PUT
+message PutAck {
+  optional string req_id = 1;
+  optional bool mod_res = 2;
+}
+
+// DEL message for a cache operation
+message  Del {
+  string cache_name = 1;
+  string entry = 2;
+  optional string req_id = 3;
+
+}
+
+// REMOVE message for a cache operation
+message  Remove {
+  string cache_name = 1;
+  string entry = 2;
+  string req_id = 3;
+  AckLevel ack_level = 4;
+}
+
+// ACK for a successful DEL
+message  DelAck {
+  optional string req_id = 1;
+  optional bool mod_res = 2;
+}
+
+// The AckLevel for HA cache modifying requests
+message AckLevel {
+  oneof ack_level {
+    Empty level_quorum = 1;
+    Empty level_once = 2;
+    Empty level_leader = 3;
+  }
+}
+
+// The Cache Value being sent over the stream.
+message MgmtRequest {
+  oneof method {
+    Ping ping = 1;
+    Health health = 2;
+    LeaderReq leader_req = 3;
+    LeaderReqAck leader_req_ack = 4;
+    LeaderAck leader_ack = 5;
+    LeaderSwitch leader_switch = 6;
+    LeaderSwitchPriority leader_switch_priority = 7;
+    LeaderDead leader_dead = 8;
+    LeaderSwitchAck leader_switch_ack = 9;
+  }
+}
+
+// Just a ping with no content
+message Ping {}
+
+// Requests health information
+message Health {}
+
+// Is sent out if quorum was established and no leader is present to make a request for taking over that role
+message LeaderReq {
+  // The address where this host can be reached (multiple possible)
+  string addr = 1;
+  // Timestamp when the request has been created. In case of a conflict, the request with the earlier creation wins.
+  int64 election_ts = 2;
+}
+
+// Is sent out if quorum was established and 'enough' hosts have accepted the leader request
+message LeaderAck {
+  // The address where this host can be reached
+  string addr = 1;
+  // Timestamp when the request has been created. In case of a conflict, the request with the earlier creation wins.
+  int64 election_ts = 2;
+}
+
+// Is sent out, when the current leader is about to shut down
+message LeaderSwitch {
+  // The address of the new host that this leader votes for the next one. This creates less friction when changing.
+  string vote_host = 1;
+  int64 election_ts = 2;
+}
+
+// Is sent out, when there are multiple leadership requests to promote the one with the higher priority
+message LeaderSwitchPriority {
+  string vote_host = 1;
+  int64 election_ts = 2;
+}
+
+// Is sent out, when the leader is dead, so the sender can take over that role
+message LeaderDead {
+  // The address of the new host that this leader votes for the next one. This creates less friction when changing.
+  string vote_host = 1;
+  int64 election_ts = 2;
+}
+
+message MgmtAck {
+  oneof method {
+    Pong pong = 1;
+    HealthAck health_ack = 2;
+    LeaderInfo leader_info = 3;
+    LeaderReqAck leader_req_ack = 4;
+    // TODO do we even need the leader_ack_ack?
+    LeaderAckAck leader_ack_ack = 5;
+    LeaderSwitchAck leader_switch_ack = 6;
+  }
+}
+
+// Just a pong with no content
+message Pong {}
+
+// Returns health information
+message HealthAck {
+  // uptime of this host in seconds
+  uint64 uptime_secs = 1;
+  // if it has quorum or not
+  bool quorum = 2;
+  // if this host is a leader or follower
+  State state = 3;
+  optional Leader leader = 4;
+  // list of all configured hosts with their connection state
+  repeated HostHealth host_health = 5;
+}
+
+message State {
+  oneof value {
+    Empty leader = 1;
+    Empty leader_dead = 2;
+    Empty leader_switch = 3;
+    Empty leader_tx_await = 4;
+    Empty leadership_requested = 5;
+    Empty follower = 6;
+    Empty undefined = 7;
+  }
+}
+
+// Information about the leader
+message Leader {
+  string addr = 1;
+  int64 election_ts = 2;
+  bool connected = 3;
+}
+
+// Information about the remote host
+message HostHealth {
+  string addr = 1;
+  bool connected = 2;
+}
+
+// Will be sent out on a new client connection to inform about a possibly existing leader
+message LeaderInfo {
+  optional string addr = 1;
+  int64 election_ts = 2;
+  bool has_quorum = 3;
+}
+
+// Ack for accepting a LeaderReq
+message LeaderReqAck {
+  // The address of the acked leader
+  string addr = 1;
+  // The original timestamp from the LeaderReq itself
+  int64 election_ts = 2;
+}
+
+// Ack for accepting a LeaderAck
+message LeaderAckAck {
+  string addr = 1;
+}
+
+// Ack for accepting a LeaderSwitch
+message LeaderSwitchAck {
+  string addr = 1;
+}
+
+message Empty {}
