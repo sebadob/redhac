@@ -49,7 +49,7 @@ If you need more consistency / guarantees / syncing after a late join, you may t
 
 ```rust
 // These 3 are needed for the `cache_get` macro
- use edhac::{cache_get, cache_get_from, cache_get_value};
+ use redhac::{cache_get, cache_get_from, cache_get_value};
  use redhac::{cache_put, cache_recv, CacheConfig, SizedCache};
 #[tokio::main]
 async fn main() {
