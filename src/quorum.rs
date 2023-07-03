@@ -63,7 +63,7 @@ pub struct QuorumHealthState {
 }
 
 impl QuorumHealthState {
-    pub fn check_ha(&self) -> Result<(), CacheError> {
+    pub fn is_quorum_good(&self) -> Result<(), CacheError> {
         match self.health {
             QuorumHealth::Good => Ok(()),
             QuorumHealth::Bad => Err(CacheError {

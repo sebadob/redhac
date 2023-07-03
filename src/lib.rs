@@ -709,7 +709,7 @@ pub async fn cache_get_value(
     remote_lookup: bool,
 ) -> Result<Option<Vec<u8>>, CacheError> {
     let health_state = if let Some(s) = cache_config.rx_health_state.borrow().clone() {
-        s.check_ha()?;
+        s.is_quorum_good()?;
         Some(s)
     } else {
         None
@@ -818,7 +818,7 @@ where
     T: Debug + serde::Serialize,
 {
     let health_state = if let Some(s) = cache_config.rx_health_state.borrow().clone() {
-        s.check_ha()?;
+        s.is_quorum_good()?;
         Some(s)
     } else {
         None
@@ -873,6 +873,10 @@ The different [AckLevel](AckLevel)'s will provide different levels of safety vs 
 For instance, if you request an ack from at least "quorum" nodes, it means that the value will be
 persisted, even if the cache will end up in split brain mode. However, this will provide the least
 amount of performance of course.
+
+If `HA_MODE` is not active, this function will default back to the faster [cache_put](cache_put).
+This makes it possible to use `cache_insert` in a HA context with the given [AckLevel](AckLevel)
+and just have the direct insert otherwise.
  */
 pub async fn cache_insert<T>(
     cache_name: String,
@@ -884,8 +888,12 @@ pub async fn cache_insert<T>(
 where
     T: Debug + serde::Serialize,
 {
+    if !*HA_MODE {
+        return cache_put(cache_name, entry, cache_config, value).await;
+    }
+
     let health_state = if let Some(s) = cache_config.rx_health_state.borrow().clone() {
-        s.check_ha()?;
+        s.is_quorum_good()?;
         s
     } else {
         return Err(CacheError {
@@ -992,7 +1000,7 @@ pub(crate) async fn insert_from_leader(
     // This is always none, if the request is coming from a remote host and some otherwise
     let health_state = if health_state.is_none() {
         let health_state = if let Some(s) = cache_config.rx_health_state.borrow().clone() {
-            s.check_ha()?;
+            s.is_quorum_good()?;
             s
         } else {
             return Err(CacheError {
@@ -1130,10 +1138,14 @@ pub async fn cache_del(
 }
 
 /**
-This is the HA version of `cache_del`. and works like `cache_insert`, just for deletions.
-Values are removed from the cache and requests are routed over the current leader to avoid
-possible conflicts, if this could be a problem. This is of course less performing than the direct
-`cache_del`, which should be favored, if this works out for you.
+This is the HA version of [cache_del](cache_del). It works like [cache_insert](cache_insert), just
+for deletions. Values are removed from the cache and requests are routed over the current leader to
+avoid possible conflicts. This is of course less performing than the direct [cache_del](cache_del),
+which should be favored, if this works out for you.
+
+If `HA_MODE` is not active, this function will default back to the faster [cache_del](cache_del).
+This makes it possible to use `cache_remove` in a HA context with the given [AckLevel](AckLevel)
+and just have the direct delete otherwise.
  */
 pub async fn cache_remove(
     cache_name: String,
@@ -1141,8 +1153,12 @@ pub async fn cache_remove(
     cache_config: &CacheConfig,
     ack_level: AckLevel,
 ) -> Result<(), CacheError> {
+    if !*HA_MODE {
+        return cache_del(cache_name, entry, cache_config).await;
+    }
+
     let health_state = if let Some(s) = cache_config.rx_health_state.borrow().clone() {
-        s.check_ha()?;
+        s.is_quorum_good()?;
         s
     } else {
         return Err(CacheError {
@@ -1245,7 +1261,7 @@ pub(crate) async fn remove_from_leader(
     // This is always none, if the request is coming from a remote host and some otherwise
     let health_state = if health_state.is_none() {
         let health_state = if let Some(s) = cache_config.rx_health_state.borrow().clone() {
-            s.check_ha()?;
+            s.is_quorum_good()?;
             s
         } else {
             return Err(CacheError {
@@ -1393,7 +1409,6 @@ pub async fn start_cluster(
     tx_watch: watch::Sender<Option<QuorumHealthState>>,
     cache_config: &mut CacheConfig,
     tx_notify: Option<mpsc::Sender<CacheNotify>>,
-    // rx_exit: Option<flume::Receiver<oneshot::Sender<()>>>,
     hostname_overwrite: Option<String>,
 ) -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
