@@ -538,18 +538,6 @@ impl CacheConfig {
         }
     }
 
-    /// ## **DEPRECATED**
-    /// Add new cache channels to the CacheConfig. If returns the Receiver, which ca be inserted
-    /// directly into the [cache_recv](cache_recv).
-    /// ## Note
-    /// This function is here for compatibility reasons with earlier versions and is deprecated.
-    /// Use `spawn_cache` instead.
-    pub fn add_cache(&mut self, cache_name: String, buffer: usize) -> flume::Receiver<CacheReq> {
-        let (tx, rx) = flume::bounded::<CacheReq>(buffer);
-        self.cache_map.insert(cache_name, tx);
-        rx
-    }
-
     /// Adds / spawns a new cache, which will run internally as an independent tokio task.
     /// The channel will be unbounded if `buffer == None`.
     pub fn spawn_cache<C: Cached<String, Vec<u8>> + Send + 'static>(
@@ -979,7 +967,8 @@ where
 }
 
 /// The main insert function in case of a configured HA_MODE. Respects the `AckLevel` and and
-/// pushes the modifications out to all Followers. Returns a `Result` for the given `AckLevel`.
+/// pushes the modifications out to all Followers. Returns a `Result` for the given
+/// [AckLevel](AckLevel).
 pub(crate) async fn insert_from_leader(
     cache_name: String,
     entry: String,
@@ -1365,13 +1354,14 @@ fn get_local_hostname() -> String {
     }
 }
 
-/// Used internally to generate reqeust ids for cache operations in HA mode.
+/// Used internally to generate request ids for cache operations in HA mode.
 /// Currently, only 10 characters, since conflicts are extremely unlikely. These ids will not live
 /// much longer than a millisecond mostly.
 pub(crate) fn get_cache_req_id() -> String {
-    // 10 characters is probably way more than enough if take into account, that these IDs do live
+    // 10 characters is probably way more than enough if taken into account, that these IDs do live
     // for only a few ms each time at most.
     // TODO observe and maybe tune this value - maybe add config var for slow networks
+    // TODO We could change to ULIDs or even an incrementing counter too, which could be way faster
     nanoid!(10)
 }
 
@@ -1384,7 +1374,7 @@ pub(crate) fn get_rand_between(start: u64, end: u64) -> u64 {
 /// This full reset is local and will not be pushed to possible remote HA cache members.
 pub async fn clear_caches(cache_config: &CacheConfig) -> Result<(), CacheError> {
     for (name, tx) in &cache_config.cache_map {
-        info!("Clearing cache {}", name);
+        debug!("Clearing cache {}", name);
         tx.send_async(CacheReq::Reset).await?;
     }
     Ok(())
@@ -1516,12 +1506,9 @@ The main function to start up a new cache handler.<br />
 - `cache` accepts any of the Cache structs from the [Cached](https://crates.io/crates/cached) crate.
 This means, if you need caches with different configs, just start up a new `cache_recv`.<br />
 - `name` is only used for logging and debugging.
-- `rx` can be inserted easily, when using [CacheConfig::add_cache](CacheConfig::add_cache)
-# Important
-This is pub for compatibility reasons, but will be private in the future, since it will be accessed
-in the `cache_spawn` method for the `CacheConfig` directly.
+- `rx` for [CacheReq](CacheReq)s
  */
-pub async fn cache_recv<C>(mut cache: C, name: String, rx: flume::Receiver<CacheReq>)
+pub(crate) async fn cache_recv<C>(mut cache: C, name: String, rx: flume::Receiver<CacheReq>)
 where
     C: Cached<String, Vec<u8>>,
 {
