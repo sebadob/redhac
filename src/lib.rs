@@ -850,7 +850,7 @@ where
 }
 
 /**
-The HA pendant to `cache_put`.
+The HA pendant to [cache_put](cache_put) - defaults to [cache_put](cache_put) in non-HA mode
 
 This makes Put's safe and conflict free. If the current host is the leader, it will push the cache
 operation to all nodes, if it is a Follower, the request will be forwarded to the current leader to
@@ -1127,6 +1127,8 @@ pub async fn cache_del(
 }
 
 /**
+The HA pendant to [cache_del](cache_del) - defaults to [cache_del](cache_del) in non-HA mode
+
 This is the HA version of [cache_del](cache_del). It works like [cache_insert](cache_insert), just
 for deletions. Values are removed from the cache and requests are routed over the current leader to
 avoid possible conflicts. This is of course less performing than the direct [cache_del](cache_del),
