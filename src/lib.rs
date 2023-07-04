@@ -1468,10 +1468,11 @@ pub async fn start_cluster(
     let rx_remote = cache_config.rx_remote.as_ref().unwrap().clone();
     let clients_handle = tokio::spawn(cache_clients(ha_clients, tx_quorum, rx_remote));
 
-    // start a Ping handler to keep up to date RTT's for each connection
+    // start a ping handler to keep up to date RTT's for each connection
+    // this ping handler prevents broken pipe's on some K8s setups
     let tx_remote = cache_config.tx_remote.as_ref().unwrap().clone();
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(3));
+        let mut interval = tokio::time::interval(Duration::from_secs(5));
         loop {
             interval.tick().await;
             if let Err(err) = tx_remote.send_async(RpcRequest::Ping).await {
