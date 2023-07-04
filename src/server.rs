@@ -44,6 +44,7 @@ pub(crate) type CacheMap = HashMap<String, flume::Sender<CacheReq>>;
 
 fn match_for_io_error(err_status: &Status) -> Option<&std::io::Error> {
     let mut err: &(dyn std::error::Error + 'static) = err_status;
+    debug!("match_for_io_error: {:?}", err_status);
 
     loop {
         if let Some(io_err) = err.downcast_ref::<std::io::Error>() {
@@ -711,7 +712,10 @@ impl Cache for RpcCacheService {
 
                         match tx.send(Err(err)).await {
                             Ok(_) => (),
-                            Err(_err) => break, // response was dropped
+                            Err(err) => {
+                                error!("{:?}", err);
+                                break;
+                            } // response was dropped
                         }
                     }
                 }

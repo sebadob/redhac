@@ -1,16 +1,11 @@
-use crate::quorum::{AckLevel, RpcServer, RpcServerState};
-use crate::rpc::cache;
-use crate::rpc::cache::cache_client::CacheClient;
-use crate::rpc::cache::mgmt_ack::Method;
-use crate::rpc::cache::{ack, cache_request, CacheRequest};
-use crate::{get_cache_req_id, get_rand_between, CacheError, QuorumReq, TLS};
-use cached::Cached;
-use futures_util::StreamExt;
-use lazy_static::lazy_static;
 use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
+
+use cached::Cached;
+use futures_util::TryStreamExt;
+use lazy_static::lazy_static;
 use tokio::sync::{mpsc, watch};
 use tokio::{fs, time};
 use tokio_stream::wrappers::ReceiverStream;
@@ -20,6 +15,13 @@ use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity, Uri};
 use tonic::{Request, Status};
 use tower::util::ServiceExt;
 use tracing::{debug, error, info};
+
+use crate::quorum::{AckLevel, RpcServer, RpcServerState};
+use crate::rpc::cache;
+use crate::rpc::cache::cache_client::CacheClient;
+use crate::rpc::cache::mgmt_ack::Method;
+use crate::rpc::cache::{ack, cache_request, CacheRequest};
+use crate::{get_cache_req_id, get_rand_between, CacheError, QuorumReq, TLS};
 
 lazy_static! {
     static ref BUF_SIZE_CLIENT: usize = env::var("CACHE_BUF_CLIENT")
@@ -48,6 +50,7 @@ lazy_static! {
 
 #[derive(Debug, Clone)]
 pub enum RpcRequest {
+    Ping,
     Get {
         cache_name: String,
         entry: String,
@@ -379,6 +382,12 @@ async fn run_client(
                 }
 
                 let forward_req = match req {
+                    RpcRequest::Ping => CacheRequest {
+                        method: Some(cache_request::Method::MgmtReq(cache::MgmtRequest {
+                            method: Some(cache::mgmt_request::Method::Ping(cache::Ping {})),
+                        })),
+                    },
+
                     RpcRequest::Get {
                         cache_name,
                         entry,
@@ -670,119 +679,132 @@ async fn run_client(
             }
         };
 
-        while let Some(recv) = res_stream.next().await {
-            if recv.is_err() {
-                debug!(
-                    "ReceiverStream is err for Host {} - exiting: {:?}",
-                    host, recv
-                );
-                break;
-            }
-
-            let method = recv.unwrap().method;
-            if method.is_none() {
-                error!("Error with Ack from Server - result is None");
-                break;
-            }
-
-            match method.unwrap() {
-                ack::Method::GetAck(a) => {
-                    let get_req = HAReq::SendCacheGetResponse {
-                        cache_name: a.cache_name,
-                        entry: a.entry,
-                        value: a.value,
-                    };
-                    let send = callback_tx.send_async(get_req).await;
-                    if send.is_err() {
-                        error!("Error forwarding remote Cache GET request");
+        loop {
+            match res_stream.try_next().await {
+                Ok(recv) => {
+                    if recv.is_none() {
+                        error!(
+                            "Received None in client receiver for Host {} - exiting: {:?}",
+                            host, recv
+                        );
+                        break;
                     }
-                }
 
-                ack::Method::PutAck(ack) => {
-                    if let Some(req_id) = ack.req_id {
-                        let req = HAReq::SendCacheModResponse {
-                            req_id,
-                            value: ack.mod_res.unwrap_or(false),
-                        };
-                        if let Err(err) = callback_tx.send_async(req).await {
-                            error!("{}", err);
-                        }
+                    let method = recv.unwrap().method;
+                    if method.is_none() {
+                        error!("Error with Ack from Server - result is None");
+                        break;
                     }
-                }
 
-                ack::Method::DelAck(ack) => {
-                    if let Some(req_id) = ack.req_id {
-                        let req = HAReq::SendCacheModResponse {
-                            req_id,
-                            value: ack.mod_res.unwrap_or(false),
-                        };
-                        if let Err(err) = callback_tx.send_async(req).await {
-                            error!("{}", err);
-                        }
-                    }
-                }
-
-                ack::Method::MgmtAck(ack) => {
-                    if ack.method.is_none() {
-                        continue;
-                    }
-                    let method = ack.method.unwrap();
-
-                    match method {
-                        Method::Pong(_) => {
-                            todo!("Method::Pong - use it to calculate a RTT in the future - not yet implemented");
+                    match method.unwrap() {
+                        ack::Method::GetAck(a) => {
+                            let get_req = HAReq::SendCacheGetResponse {
+                                cache_name: a.cache_name,
+                                entry: a.entry,
+                                value: a.value,
+                            };
+                            let send = callback_tx.send_async(get_req).await;
+                            if send.is_err() {
+                                error!("Error forwarding remote Cache GET request");
+                            }
                         }
 
-                        Method::HealthAck(_) => {}
-
-                        Method::LeaderInfo(info) => {
-                            if let Some(addr) = info.addr {
-                                debug!(
-                                    "Received LeaderInfo: {:?} with quorum: {}",
-                                    addr, info.has_quorum
-                                );
-                                if let Err(err) = tx_quorum
-                                    .send_async(QuorumReq::LeaderInfo {
-                                        addr,
-                                        has_quorum: info.has_quorum,
-                                        election_ts: info.election_ts,
-                                    })
-                                    .await
-                                {
-                                    error!("{:?}", CacheError::from(&err));
+                        ack::Method::PutAck(ack) => {
+                            if let Some(req_id) = ack.req_id {
+                                let req = HAReq::SendCacheModResponse {
+                                    req_id,
+                                    value: ack.mod_res.unwrap_or(false),
+                                };
+                                if let Err(err) = callback_tx.send_async(req).await {
+                                    error!("{}", err);
                                 }
                             }
                         }
 
-                        Method::LeaderReqAck(req) => {
-                            debug!("Received LeaderReqAck: {:?}", req.addr);
-                            if let Err(err) = tx_quorum
-                                .send_async(QuorumReq::LeaderReqAck {
-                                    addr: req.addr,
-                                    election_ts: req.election_ts,
-                                })
-                                .await
-                            {
-                                error!("{:?}", CacheError::from(&err));
+                        ack::Method::DelAck(ack) => {
+                            if let Some(req_id) = ack.req_id {
+                                let req = HAReq::SendCacheModResponse {
+                                    req_id,
+                                    value: ack.mod_res.unwrap_or(false),
+                                };
+                                if let Err(err) = callback_tx.send_async(req).await {
+                                    error!("{}", err);
+                                }
                             }
                         }
 
-                        Method::LeaderAckAck(_) => {}
-
-                        Method::LeaderSwitchAck(req) => {
-                            debug!("Received LeaderSwitchAck: {:?}", req.addr);
-                            if let Err(err) = tx_quorum
-                                .send_async(QuorumReq::LeaderSwitchAck { req })
-                                .await
-                            {
-                                error!("{:?}", CacheError::from(&err));
+                        ack::Method::MgmtAck(ack) => {
+                            if ack.method.is_none() {
+                                continue;
                             }
+                            let method = ack.method.unwrap();
+
+                            match method {
+                                Method::Pong(_) => {
+                                    debug!("pong");
+                                    // todo!("Method::Pong - use it to calculate a RTT in the future - not yet implemented");
+                                }
+
+                                Method::HealthAck(_) => {}
+
+                                Method::LeaderInfo(info) => {
+                                    if let Some(addr) = info.addr {
+                                        debug!(
+                                            "Received LeaderInfo: {:?} with quorum: {}",
+                                            addr, info.has_quorum
+                                        );
+                                        if let Err(err) = tx_quorum
+                                            .send_async(QuorumReq::LeaderInfo {
+                                                addr,
+                                                has_quorum: info.has_quorum,
+                                                election_ts: info.election_ts,
+                                            })
+                                            .await
+                                        {
+                                            error!("{:?}", CacheError::from(&err));
+                                        }
+                                    }
+                                }
+
+                                Method::LeaderReqAck(req) => {
+                                    debug!("Received LeaderReqAck: {:?}", req.addr);
+                                    if let Err(err) = tx_quorum
+                                        .send_async(QuorumReq::LeaderReqAck {
+                                            addr: req.addr,
+                                            election_ts: req.election_ts,
+                                        })
+                                        .await
+                                    {
+                                        error!("{:?}", CacheError::from(&err));
+                                    }
+                                }
+
+                                Method::LeaderAckAck(_) => {}
+
+                                Method::LeaderSwitchAck(req) => {
+                                    debug!("Received LeaderSwitchAck: {:?}", req.addr);
+                                    if let Err(err) = tx_quorum
+                                        .send_async(QuorumReq::LeaderSwitchAck { req })
+                                        .await
+                                    {
+                                        error!("{:?}", CacheError::from(&err));
+                                    }
+                                }
+                            }
+                        }
+
+                        ack::Method::Error(e) => {
+                            error!("Cache Server sent an error: {:?}", e);
                         }
                     }
                 }
 
-                ack::Method::Error(e) => {
-                    error!("Cache Server sent an error: {:?}", e);
+                Err(err) => {
+                    error!(
+                        "Received an error in client receiver for Host {} - exiting: {:?}",
+                        host, err
+                    );
+                    break;
                 }
             }
         }

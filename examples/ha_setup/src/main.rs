@@ -1,4 +1,3 @@
-use redhac::{cache_get, cache_get_from, cache_get_value};
 use std::env;
 use std::time::Duration;
 use tokio::time;
@@ -68,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
     info!("First cache node started");
 
     // Now just sleep until we ctrl + c so we can start the other members and observe the behavior
-    time::sleep(Duration::from_secs(60)).await;
+    time::sleep(Duration::from_secs(6000)).await;
 
     // Let's simulate a graceful shutdown
     cache_config.shutdown().await?;
