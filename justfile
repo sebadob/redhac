@@ -8,6 +8,15 @@ version:
     echo "v$TAG"
 
 
+# clippy lint + check with minimal versions from nightly
+check:
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    clear
+    #cargo clippy -- -D warnings
+    cargo minimal-versions check
+
+
 # runs the full set of tests
 test:
     #!/usr/bin/env bash
@@ -40,6 +49,16 @@ is-clean: test build
     git diff --exit-code
 
     echo all good
+
+
+# verifies the MSRV
+msrv-verify:
+    cargo msrv verify
+
+
+# find's the new MSRF, if it needs a bump
+msrv-find:
+    cargo msrv --min 1.64.0
 
 
 # sets a new git tag and pushes it
