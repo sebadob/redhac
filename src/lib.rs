@@ -19,7 +19,7 @@
 //! ```rust
 //! // These 3 are needed for the `cache_get` macro
 //! use redhac::{cache_get, cache_get_from, cache_get_value};
-//! use redhac::{cache_put, cache_recv, CacheConfig, SizedCache};
+//! use redhac::{cache_put, CacheConfig, SizedCache};
 //!
 //! #[tokio::main]
 //! async fn main() {
