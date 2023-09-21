@@ -1,7 +1,8 @@
 [package]
 name = "redhac"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
+rust-version = "1.65.0"
 license = "Apache-2.0 OR MIT"
 authors = ["Sebastian Dobe <sebastiandobe@mailbox.org"]
 categories = ["caching"]
@@ -14,27 +15,31 @@ repository = "https://github.com/sebadob/redhac"
 anyhow = "1.0"
 async-stream = "0.3"
 bincode = "1"
-cached = { version = "0.44", features = ["async", "async_tokio_rt_multi_thread"] }
-chrono = { version = "0.4", default-features = false, features = ["clock", "serde", "std"] }
+cached = { version = "0.45", features = ["async", "async_tokio_rt_multi_thread"] }
+chrono = { version = "0.4.31", default-features = false, features = ["clock", "serde", "std"] }
 ctrlc = { version = "3", features = ["termination"] }
 dotenvy = "0.15"
-flume = "0.10.14"
+flume = "0.11"
 futures-core = "0.3"
 futures-util = "0.3"
 gethostname = "0.4"
-lazy_static = "1"
+lazy_static = "1.1.1"
 nanoid = "0.4"
-prost = "0.11"
+prost = "0.12.1"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
-tokio = { version = "1.18.6", features = ["full"] }
+tokio = { version = "1.21.2", features = ["full"] }
 tokio-stream = "0.1.5"
-tonic = { version = "0.9.1", features = ["gzip", "prost", "tls", "transport", "tls-webpki-roots"] }
+tonic = { version = "0.10", features = ["gzip", "tls", "tls-webpki-roots"] }
 tower = "0.4"
 tracing = "0.1"
 
 # make minimal versions happy
 flate2 = "1.0.6"
+crc32fast = "1.1.2"
+# for tonic v0.10
+rustls = "0.21.7"
+hyper = "0.14.26"
 
 [dev-dependencies]
 criterion = "0.5"
@@ -43,4 +48,4 @@ tokio-test = "0.4"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "tracing"] }
 
 [build-dependencies]
-tonic-build = "0.9"
+tonic-build = "0.10"

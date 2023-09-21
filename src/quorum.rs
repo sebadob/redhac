@@ -320,7 +320,8 @@ pub(crate) async fn quorum_handler(
                                     // have one.
                                     if leader.is_none() {
                                         debug!("No registered leader - requesting the leadership");
-                                        let election_ts = Utc::now().timestamp_nanos();
+                                        // safe to unwrap until `2262-04-11`
+                                        let election_ts = Utc::now().timestamp_nanos_opt().unwrap();
                                         leader = Some(RegisteredLeader::Local(election_ts));
                                         state = QuorumState::LeadershipRequested(election_ts);
                                         health_state.state =
@@ -377,7 +378,8 @@ pub(crate) async fn quorum_handler(
                                 // Short sleep to better avoid race conditions
                                 time::sleep(Duration::from_millis(get_rand_between(0, 100))).await;
 
-                                let election_ts = Utc::now().timestamp_nanos();
+                                // safe to unwrap until `2262-04-11`
+                                let election_ts = Utc::now().timestamp_nanos_opt().unwrap();
                                 tx_remote
                                     .send_async(RpcRequest::LeaderSwitchDead {
                                         vote_host: whoami.clone(),
@@ -907,7 +909,8 @@ pub(crate) async fn quorum_handler(
                                 time::sleep(Duration::from_millis(get_rand_between(0, 100))).await;
                                 info!("Quorum is still good after cache cluster leader died - requesting leadership");
 
-                                let election_ts = Utc::now().timestamp_nanos();
+                                // safe to unwrap until `2262-04-11`
+                                let election_ts = Utc::now().timestamp_nanos_opt().unwrap();
                                 tx_remote
                                     .send_async(RpcRequest::LeaderSwitchDead {
                                         vote_host: whoami.clone(),
@@ -960,7 +963,8 @@ pub(crate) async fn quorum_handler(
 
                         match health {
                             QuorumHealth::Good => {
-                                let election_ts = Utc::now().timestamp_nanos();
+                                // safe to unwrap until `2262-04-11`
+                                let election_ts = Utc::now().timestamp_nanos_opt().unwrap();
                                 leader = Some(RegisteredLeader::Local(election_ts));
                                 health_state.state = QuorumState::LeadershipRequested(election_ts);
                                 health_state.tx_leader = None;
@@ -997,7 +1001,8 @@ pub(crate) async fn quorum_handler(
                         if let Err(err) = tx_remote
                             .send_async(RpcRequest::LeaderSwitch {
                                 vote_host: addr.clone(),
-                                election_ts: Utc::now().timestamp_nanos(),
+                                // safe to unwrap until `2262-04-11`
+                                election_ts: Utc::now().timestamp_nanos_opt().unwrap(),
                             })
                             .await
                         {
