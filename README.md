@@ -41,9 +41,9 @@ If you need more consistency / guarantees / syncing after a late join, you may t
 
 ### Versions and dependencies
 
-- MSRV is Rust 1.64
+- MSRV is Rust 1.65
 - Everything is checked and working with `-Zminimal-versions`
-- No issue reported by `cargo audit` (2023-06-23)
+- No issue reported by `cargo audit` (2023-09-21)
 
 ## Single Instance Example
 
