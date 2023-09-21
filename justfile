@@ -36,17 +36,6 @@ build:
     cargo build --release --target x86_64-unknown-linux-musl
 
 
-# makes sure everything is fine
-is-clean: check test build
-    #!/usr/bin/env bash
-    set -euxo pipefail
-
-    # make sure everything has been committed
-    git diff --exit-code
-
-    echo all good
-
-
 # verifies the MSRV
 msrv-verify:
     cargo msrv verify
@@ -61,8 +50,19 @@ msrv-find:
 verify: check test build msrv-verify
 
 
+# makes sure everything is fine
+verfiy-is-clean: verify
+    #!/usr/bin/env bash
+    set -euxo pipefail
+
+    # make sure everything has been committed
+    git diff --exit-code
+
+    echo all good
+
+
 # sets a new git tag and pushes it
-release: verify
+release: verfiy-is-clean
     #!/usr/bin/env bash
     set -euxo pipefail
 
@@ -74,6 +74,7 @@ release: verify
 
 
 # publishes the current version to cargo.io
-#publish: test build
-#    #!/usr/bin/env bash
-#    set -euxo pipefail
+publish: verfiy-is-clean
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    cargo publish
