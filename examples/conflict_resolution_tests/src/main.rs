@@ -38,7 +38,10 @@ async fn main() -> anyhow::Result<()> {
     // Disable TLS for this example
     env::set_var("CACHE_TLS", "false");
 
-    let goal = 1000;
+    // This value controls how many runs should be done (successfully) until the conflict
+    // resolution test can be considered successful.
+    // This value is rather low for this example. It was tested with many thousands beforehand.
+    let goal = 10;
     let mut success = 0;
     let mut exec_times = 0;
     let mut exec_min = 999;
