@@ -13,7 +13,8 @@ check:
     #!/usr/bin/env bash
     set -euxo pipefail
     clear
-    #cargo clippy -- -D warnings
+    cargo update
+    cargo +nightly clippy -- -D warnings
     cargo minimal-versions check
 
 
@@ -32,18 +33,15 @@ build:
     #!/usr/bin/env bash
     set -euxo pipefail
 
-    cargo clippy -- -D warnings
+    cargo +nightly clippy -- -D warnings
     # build as musl to make sure this works
     cargo build --release --target x86_64-unknown-linux-musl
 
 
 # makes sure everything is fine
-is-clean: test build
+is-clean: check test build
     #!/usr/bin/env bash
     set -euxo pipefail
-
-    # exit early if clippy emits warnings
-    cargo clippy -- -D warnings
 
     # make sure everything has been committed
     git diff --exit-code
@@ -62,7 +60,7 @@ msrv-find:
 
 
 # sets a new git tag and pushes it
-release:
+release: check test build msrv-verify
     #!/usr/bin/env bash
     set -euxo pipefail
 
