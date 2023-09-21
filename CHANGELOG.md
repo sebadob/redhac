@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0
+
+This is a maintenance release.
+
+- bump versions or core dependencies
+- fix minimal versions for new dependencies
+- introduce a justfile for easier maintenance
+- bump MSRV to 1.65.0 due to core dependency updates
+[bcdfc62](https://github.com/sebadob/redhac/commit/bcdfc62665320a9ad3f832d0c28f0175d6e447c2)
+[506c9c6](https://github.com/sebadob/redhac/commit/506c9c6c2c2fb3cbb1253cabd6bf4cdf9b01f4b0)
+
 ## v0.6.0
 
 - `cache_insert` and `cache_remove` default to their non-HA counterparts if `HA_MODE == false`
