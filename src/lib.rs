@@ -987,7 +987,9 @@ pub(crate) async fn insert_from_leader(
 
     // let mut is_leader = false;
     // This is always none, if the request is coming from a remote host and some otherwise
-    let health_state = if health_state.is_none() {
+    let health_state = if let Some(health_state) = health_state {
+        health_state
+    } else {
         let health_state = if let Some(s) = cache_config.rx_health_state.borrow().clone() {
             s.is_quorum_good()?;
             s
@@ -997,8 +999,6 @@ pub(crate) async fn insert_from_leader(
             });
         };
         health_state
-    } else {
-        health_state.unwrap()
     };
 
     // double check, that we are really the leader
@@ -1250,7 +1250,9 @@ pub(crate) async fn remove_from_leader(
 
     // let mut is_leader = false;
     // This is always none, if the request is coming from a remote host and some otherwise
-    let health_state = if health_state.is_none() {
+    let health_state = if let Some(health_state) = health_state {
+        health_state
+    } else {
         let health_state = if let Some(s) = cache_config.rx_health_state.borrow().clone() {
             s.is_quorum_good()?;
             s
@@ -1260,8 +1262,6 @@ pub(crate) async fn remove_from_leader(
             });
         };
         health_state
-    } else {
-        health_state.unwrap()
     };
 
     // double check, that we are really the leader
