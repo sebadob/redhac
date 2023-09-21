@@ -56,7 +56,7 @@ msrv-verify:
 
 # find's the new MSRF, if it needs a bump
 msrv-find:
-    cargo msrv --min 1.64.0
+    cargo msrv --min 1.65.0
 
 
 # sets a new git tag and pushes it
