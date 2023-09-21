@@ -32,8 +32,6 @@ test:
 build:
     #!/usr/bin/env bash
     set -euxo pipefail
-
-    cargo +nightly clippy -- -D warnings
     # build as musl to make sure this works
     cargo build --release --target x86_64-unknown-linux-musl
 
@@ -59,8 +57,12 @@ msrv-find:
     cargo msrv --min 1.65.0
 
 
+# verify thats everything is good
+verify: check test build msrv-verify
+
+
 # sets a new git tag and pushes it
-release: check test build msrv-verify
+release: verify
     #!/usr/bin/env bash
     set -euxo pipefail
 
