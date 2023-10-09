@@ -385,10 +385,10 @@ use tokio::time;
 use tracing::{debug, error, info, warn};
 
 pub use quorum::AckLevel;
-pub use quorum::{QuorumHealth, QuorumState};
+pub use quorum::{QuorumHealth, QuorumHealthState, QuorumState};
 
 use crate::client::{cache_clients, RpcRequest};
-use crate::quorum::{quorum_handler, QuorumHealthState, QuorumReq};
+use crate::quorum::{quorum_handler, QuorumReq};
 use crate::server::{CacheMap, RpcCacheService};
 
 mod client;
