@@ -1,6 +1,6 @@
 [package]
 name = "redhac"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 rust-version = "1.65.0"
 license = "Apache-2.0 OR MIT"
@@ -15,7 +15,7 @@ repository = "https://github.com/sebadob/redhac"
 anyhow = "1.0"
 async-stream = "0.3"
 bincode = "1"
-cached = { version = "0.45", features = ["async", "async_tokio_rt_multi_thread"] }
+cached = { version = "0.46", features = ["async", "async_tokio_rt_multi_thread"] }
 chrono = { version = "0.4.31", default-features = false, features = ["clock", "serde", "std"] }
 ctrlc = { version = "3", features = ["termination"] }
 dotenvy = "0.15"
@@ -35,6 +35,7 @@ tower = "0.4"
 tracing = "0.1"
 
 # make minimal versions happy
+ahash = "0.8.0"
 flate2 = "1.0.6"
 crc32fast = "1.1.2"
 # for tonic v0.10
