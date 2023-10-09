@@ -238,6 +238,7 @@
 //! ```rust
 //! use std::env;
 //! use redhac::*;
+//! use redhac::quorum::{AckLevel, QuorumState};
 //! use std::time::Duration;
 //! use tokio::time;
 //!
@@ -366,6 +367,9 @@
 //! }
 //! ```
 
+use crate::client::{cache_clients, RpcRequest};
+use crate::quorum::{quorum_handler, QuorumReq};
+use crate::server::{CacheMap, RpcCacheService};
 use bincode::ErrorKind;
 use cached::Cached;
 pub use cached::SizedCache;
@@ -384,15 +388,10 @@ use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time;
 use tracing::{debug, error, info, warn};
 
-pub use quorum::AckLevel;
-pub use quorum::{QuorumHealth, QuorumHealthState, QuorumState};
-
-use crate::client::{cache_clients, RpcRequest};
-use crate::quorum::{quorum_handler, QuorumReq};
-use crate::server::{CacheMap, RpcCacheService};
+pub use crate::quorum::{AckLevel, QuorumHealth, QuorumHealthState, QuorumState};
 
 mod client;
-mod quorum;
+pub mod quorum;
 #[allow(clippy::enum_variant_names)]
 mod rpc;
 mod server;

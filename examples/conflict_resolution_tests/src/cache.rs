@@ -64,12 +64,12 @@ pub async fn start_caches() -> anyhow::Result<u64> {
             let health_borrow = cache.rx_health_state.borrow();
             let health = health_borrow.as_ref().unwrap();
 
-            if health.health != redhac::QuorumHealth::Good {
+            if health.health != redhac::quorum::QuorumHealth::Good {
                 break;
             }
             match health.state {
-                redhac::QuorumState::Leader => leaders += 1,
-                redhac::QuorumState::Follower => followers += 1,
+                redhac::quorum::QuorumState::Leader => leaders += 1,
+                redhac::quorum::QuorumState::Follower => followers += 1,
                 _ => {}
             }
         }
