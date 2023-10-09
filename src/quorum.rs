@@ -117,7 +117,7 @@ impl Default for QuorumState {
 /// Enum for the communication between all necessary component when `HA_MODE` == true.
 /// `Print` prints out information about the current quorum and connected clients / servers.
 #[derive(Debug)]
-pub enum QuorumReq {
+pub(crate) enum QuorumReq {
     UpdateServer {
         server: RpcServer,
     },
@@ -154,6 +154,8 @@ pub enum QuorumReq {
     },
     CheckElectionTimeout,
     HostShutdown,
+    // dead code inside this lib, but may be used from the outside to trigger a status log print
+    #[allow(dead_code)]
     Print,
 }
 
