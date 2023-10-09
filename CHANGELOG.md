@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.8.0
+
+### Features
+
+This update introduces a small new feature.  
+It is now possible to use the `redhac::quorum::QuorumHealthState` nicely externally.
+The `quorum` module has been exported as `pub` and the `QuorumHealthState` has been added as
+a `pub use` to the redhac main crate. This makes it possible for applications to actually use
+the `QuorumHealthState` and pass it around to functions without the need to always pass the
+whole `CacheConfig` each time.  
+This is especially useful if you want to have your `CacheConfig.rx_health_state` in parts of
+your application.
+
+### Changes
+
+- make `redhac::quorum::QuorumHealthState` pub usable
+- `pub mod` of the `quorum` crate (with some new `pub(crate)` exceptions)
+- bump versions or core dependencies
+- fix minimal versions for new dependencies
+
 ## 0.7.0
 
 This is a maintenance release.
