@@ -175,9 +175,9 @@
 //! # Enable / disable TLS for the cache communication (default: true)
 //! CACHE_TLS=true
 //!
-//! # The path to the server TLS certificate PEM file (default: tls/certs/redhac.cert-chain.pem)
+//! # The path to the server TLS certificate PEM file (default: tls/redhac.cert-chain.pem)
 //! CACHE_TLS_SERVER_CERT=tls/redhac.cert-chain.pem
-//! # The path to the server TLS key PEM file (default: tls/certs/redhac.key.pem)
+//! # The path to the server TLS key PEM file (default: tls/redhac.key.pem)
 //! CACHE_TLS_SERVER_KEY=tls/redhac.key.pem
 //!
 //! # The path to the client mTLS certificate PEM file. This is optional.
