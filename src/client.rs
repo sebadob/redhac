@@ -39,8 +39,8 @@ lazy_static! {
     static ref PATH_TLS_CERT: Option<String> = env::var("CACHE_TLS_CLIENT_CERT").ok();
     static ref PATH_TLS_KEY: Option<String> = env::var("CACHE_TLS_CLIENT_KEY").ok();
     static ref PATH_SERVER_CA: Option<String> = env::var("CACHE_TLS_CA_SERVER").ok();
-    static ref TLS_VALIDATE_DOMAIN: Option<String> =
-        env::var("CACHE_TLS_CLIENT_VALIDATE_DOMAIN").ok();
+    static ref TLS_VALIDATE_DOMAIN: String = env::var("CACHE_TLS_CLIENT_VALIDATE_DOMAIN")
+        .unwrap_or_else(|_| String::from("redhac.local"));
     static ref CACHE_TLS_SNI_OVERWRITE: String =
         env::var("CACHE_TLS_SNI_OVERWRITE").unwrap_or_else(|_| String::default());
 }
@@ -226,9 +226,8 @@ async fn run_client(
                 cfg = cfg.ca_certificate(ca_chain);
             }
 
-            if let Some(domain) = &*TLS_VALIDATE_DOMAIN {
-                cfg = cfg.domain_name(domain);
-            }
+            // We always want to validate the domain name
+            cfg = cfg.domain_name(&*TLS_VALIDATE_DOMAIN);
 
             let mut channel = Channel::builder(uri)
                 .tls_config(cfg)
