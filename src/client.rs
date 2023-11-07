@@ -36,14 +36,11 @@ lazy_static! {
         .unwrap_or_else(|_| String::from("5000"))
         .parse::<u64>()
         .expect("Error parsing 'CACHE_RECONNECT_TIMEOUT_UPPER' to u64");
-    static ref PATH_TLS_CERT: String = env::var("CACHE_TLS_CLIENT_CERT")
-        .unwrap_or_else(|_| String::from("tls/redhac.local.cert.pem"));
-    static ref PATH_TLS_KEY: String = env::var("CACHE_TLS_CLIENT_KEY")
-        .unwrap_or_else(|_| String::from("tls/redhac.local.key.pem"));
-    static ref PATH_SERVER_CA: String =
-        env::var("CACHE_TLS_CA_SERVER").unwrap_or_else(|_| String::from("tls/ca-chain.cert.pem"));
-    static ref TLS_VALIDATE_DOMAIN: String = env::var("CACHE_TLS_CLIENT_VALIDATE_DOMAIN")
-        .unwrap_or_else(|_| String::from("redhac.local"));
+    static ref PATH_TLS_CERT: Option<String> = env::var("CACHE_TLS_CLIENT_CERT").ok();
+    static ref PATH_TLS_KEY: Option<String> = env::var("CACHE_TLS_CLIENT_KEY").ok();
+    static ref PATH_SERVER_CA: Option<String> = env::var("CACHE_TLS_CA_SERVER").ok();
+    static ref TLS_VALIDATE_DOMAIN: Option<String> =
+        env::var("CACHE_TLS_CLIENT_VALIDATE_DOMAIN").ok();
     static ref CACHE_TLS_SNI_OVERWRITE: String =
         env::var("CACHE_TLS_SNI_OVERWRITE").unwrap_or_else(|_| String::default());
 }
@@ -194,41 +191,43 @@ async fn run_client(
     rx_remote_req: flume::Receiver<RpcRequest>,
 ) -> anyhow::Result<()> {
     loop {
-        // Doing the reconnect timeout sleep at the beginning of the loop means having a bit slower
-        // cluster startup / creation, but it is far more resilient, especially when doing synthetic
-        // tests.
-        // time::sleep(Duration::from_millis(get_rand_between(
-        //     *RECONNECT_TIMEOUT_LOWER,
-        //     *RECONNECT_TIMEOUT_UPPER,
-        // )))
-        // .await;
-
         debug!("Trying to connect to host '{}'", host);
 
         let uri = Uri::from_str(&host).expect("Unable to build GRPC URI");
         let chan_res = if *TLS {
-            debug!("Loading client TLS cert from {}", *PATH_TLS_CERT);
-            let cert = fs::read(&*PATH_TLS_CERT)
-                .await
-                .expect("Error reading client TLS Certificate");
-            debug!("Loading client TLS key from {}", *PATH_TLS_KEY);
-            let key = fs::read(&*PATH_TLS_KEY)
-                .await
-                .expect("Error reading client TLS Key");
-            let id = Identity::from_pem(cert, key);
+            if host.starts_with("http://") {
+                error!("Connecting to an HTTP address with active will fail!");
+            }
 
-            // let mut cfg = ClientTlsConfig::new().identity(id).domain_name();
-            let mut cfg = ClientTlsConfig::new()
-                .identity(id)
-                .domain_name(&*TLS_VALIDATE_DOMAIN);
+            let mut cfg = ClientTlsConfig::new();
+            // .identity(id)
+            // .domain_name(&*TLS_VALIDATE_DOMAIN);
 
-            if !PATH_SERVER_CA.is_empty() {
-                debug!("Loading server CA from {}", *PATH_SERVER_CA);
-                let ca = fs::read(&*PATH_SERVER_CA)
+            if let Some(path) = &*PATH_TLS_CERT {
+                debug!("Loading client TLS cert from {}", path);
+                let cert = fs::read(path)
                     .await
-                    .expect("Error reading server TLS CA");
+                    .expect("Error reading client TLS Certificate");
+
+                let key = if let Some(path) = &*PATH_TLS_KEY {
+                    debug!("Loading client TLS key from {}", path);
+                    fs::read(path).await.expect("Error reading client TLS Key")
+                } else {
+                    panic!("If PATH_TLS_CERT is given, just must provide PATH_TLS_KEY too");
+                };
+
+                cfg = cfg.identity(Identity::from_pem(cert, key));
+            }
+
+            if let Some(path) = &*PATH_SERVER_CA {
+                debug!("Loading server CA from {}", path);
+                let ca = fs::read(path).await.expect("Error reading server TLS CA");
                 let ca_chain = Certificate::from_pem(ca);
                 cfg = cfg.ca_certificate(ca_chain);
+            }
+
+            if let Some(domain) = &*TLS_VALIDATE_DOMAIN {
+                cfg = cfg.domain_name(domain);
             }
 
             let mut channel = Channel::builder(uri)
@@ -376,9 +375,11 @@ async fn run_client(
             debug!("Listening for RpcRequests for connected Client");
 
             while let Ok(req) = rx_remote_clone.recv_async().await {
-                // TODO remove after testing
                 if tx_server.is_closed() {
-                    panic!("tx_server is closed - WHY?");
+                    // we may end up here if the server rx could not be converted into a stream
+                    // successfully
+                    error!("Stream to server has been closed");
+                    break;
                 }
 
                 let forward_req = match req {
@@ -671,7 +672,7 @@ async fn run_client(
             Ok(r) => r.into_inner(),
             Err(err) => {
                 error!(
-                    "Error opening 'stream_values' to the server {}: {}",
+                    "Error opening 'stream_values' to the server {}: {}\n",
                     host, err
                 );
                 time::sleep(Duration::from_millis(get_rand_between(1000, 5000))).await;
