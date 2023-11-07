@@ -1,7 +1,3 @@
 .idea
 target
 Cargo.lock
-tls/ca/ca
-tls/ca/intermediate
-tls/certs/*
-tls/*.pem
