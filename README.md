@@ -60,7 +60,9 @@ async fn main() {
     let cache_name = "my_cache";
     // We need to spawn a global handler for each cache instance.
     // Communication is done over channels.
-    cache_config.spawn_cache(cache_name.to_string(), SizedCache::with_size(16), None);
+    cache_config.spawn_cache(
+        cache_name.to_string(), SizedCache::with_size(16), None
+    );
     
     // Cache keys can only be `String`s at the time of writing.
     let key = "myKey";
@@ -68,26 +70,33 @@ async fn main() {
     // The serialization of the values is done with `bincode`.
     let value = "myCacheValue".to_string();
     
-    // At this point, we need cloned values to make everything work nicely with networked
-    // connections. If you only ever need a local cache, you might be better off with using the
-    // `cached` crate directly and use references whenever possible.
-    cache_put(cache_name.to_string(), key.to_string(), &cache_config, &value)
+    // At this point, we need cloned values to make everything work
+    // nicely with networked connections. If you only ever need a 
+    // local cache, you might be better off with using the `cached`
+    // crate directly and use references whenever possible.
+    cache_put(
+        cache_name.to_string(), key.to_string(), &cache_config, &value
+    )
         .await
         .unwrap();
     
     let res = cache_get!(
         // The type of the value we want to deserialize the value into
         String,
-        // The cache name from above. We can start as many for our application as we like
+        // The cache name from above. We can start as many for our
+        // application as we like
         cache_name.to_string(),
-        // For retrieving values, the same as above is true - we need real `String`s
+        // For retrieving values, the same as above is true - we
+        // need real `String`s
         key.to_string(),
-        // All our caches have the necessary information added to the cache config. Here a
+        // All our caches have the necessary information added to
+        // the cache config. Here a
         // reference is totally fine.
         &cache_config,
-        // This does not really apply to this single instance example. If we would have started
-        // a HA cache layer we could do remote lookups for a value we cannot find locally, if
-        // this would be set to `true`
+        // This does not really apply to this single instance 
+        // example. If we would have started a HA cache layer we
+        // could do remote lookups for a value we cannot find locally,
+        // if this would be set to `true`
         false
     )
         .await
@@ -185,69 +194,86 @@ You can add your TLS certificates in PEM format and an optional Root CA. This is
 Server and the Client part separately. This means you can configure the cache layer to use mTLS
 connections.
 
-**Note:**<br>
-The TLS tools provided in this repository are very basic and have a terrible user experience.<br>
-They should only be used, if you do not have an already existing TLS setup or workflow.<br>
-A project specifically tailored to TLS CA and certificates is in the making.
-
-If you want to use these for testing anyway, here is how to do it:
-
 #### Generating TLS certificates (optional)
 
-As mentioned, the tools are very basic. If you for instance type in a bad password during CA / intermediate generation,
-they will just throw an error, and you need to clean up again. They should only get you started and be used for testing.  
-There are a lot of good tools out there which can get you started with TLS and there is no real benefit in creating
-just another one that does the same stuff.
+You can of course provide your own set of certificates, if you already have some, or just use your preferred way of
+creating some. However, I want to show a way of doing this in the most simple way possible with another tool of mine
+called [Nioca](https://github.com/sebadob/nioca).<br>
+If you have `docker` or similar available, this is the easiest option. If not, you can grab one of the binaries from
+the [out]() folder, which are available for linux amd64 and arm64.
 
-The scripts can be found in `tls/ca`. You need to have `openssl` and a BASH shell available on your system. They have 
-not been tested on Windows and will most probably not work at all. They might work however on Mac OS, even though this
-was never tested.
+I suggest to use `docker` for this task. Otherwise, you can use the `nioca` binary directly on any linux machine.
+If you want a permanent way of generating certificates for yourself, take a look at Rauthy's `justfile` and copy
+and adjust the recipes `create-root-ca` and `create-end-entity-tls` to your liking.  
+If you just want to get everything started quickly, follow these steps:
 
-The cache layer does validate the CA for mTLS connections, which is why you can generate a full set of certificates.
-`cd` into the `tls/ca` directory and do the following:
+##### Folder for your certificates
 
-**1. Certificate Authority (CA)**
-- Execute
-```
-./build_ca.sh
-```
-and enter an at least 4 character password for the private key file for the CA (3 times).
+Let's create a folder for our certificates:
 
-**2. Intermediate CA**
-- Execute
 ```
-./build_intermediate.sh
-```
-and enter an at least 4 character password for the private key file for the CA (3 times again).
-- The 4. password needs to be the one from the CA private key file from step 1.
-- Type `y` 2 times to verify the signing of the new certificate
-- On success, you will see `intermediate/certs/intermediate.cert.pem: OK` as the last line
-
-**3. End Entity Certificates**  
-These are the certificates used by the cache or any other server / client.
-- The end entity script needs the common name for the certificate as the 1. option when you execute it:
-```
-./build_end_entity.sh redhac.local
-```
-- Enter the password for the Intermediate CA private key from step 2 and verify the signing.
-- On success, you will see `intermediate/certs/redhac.local.cert.pem: OK` as the last line
-- - You should have 3 files in the `../` folder:
-```
-ca-chain.pem
-redhac.local.cert.pem
-redhac.local.key.pem
+mkdir ca
 ```
 
-**Info:**  
-This is not a tutorial about TLS certificates.  
-As mentioned above already, another dedicated TLS project is in the making.
+##### Create an alias for the `docker` command
+
+If you use one of the binaries directly, you can skip this step.
+
+```
+alias nioca='docker run --rm -it -v ./ca:/ca -u $(id -u ${USER}):$(id -g ${USER}) ghcr.io/sebadob/nioca'
+```
+
+To see the full feature set for more customization than mentioned below:
+```
+nioca x509 -h
+```
+
+##### Generate full certificate chain
+
+We can create and generate a fully functioning, production ready Root Certificate Authority (CA) with just a single
+command. Make sure that at least one of your `--alt-name-dns` from here matches the `CACHE_TLS_CLIENT_VALIDATE_DOMAIN`
+from the redhac config later on.<br>
+To keep things simple, we will use the same certificate for the server and the client. You can of course create
+separate ones, if you like:
+
+```
+nioca x509 \
+    --cn 'redhac.local' \
+    --alt-name-dns redhac.local \
+    --usages-ext server-auth \
+    --usages-ext client-auth \
+    --stage full \
+    --clean
+```
+
+You will be asked 6 times (yes, 6) for an at least 16 character password:
+- The first 3 times, you need to provide the encryption password for your Root CA
+- The last 3 times, you should provide a different password for your Intermediate CA
+
+When everything was successful, you will have a new folder named `x509` with sub folders `root`, `intermediate`
+and `end_entity` in your current one.
+
+From these, you will need the following files:
+
+```
+cp ca/x509/intermediate/ca-chain.pem ./redhac.ca-chain.pem && \
+cp ca/x509/end_entity/$(cat ca/x509/end_entity/serial)/cert-chain.pem ./redhac.cert-chain.pem && \
+cp ca/x509/end_entity/$(cat ca/x509/end_entity/serial)/key.pem ./redhac.key.pem
+```
+
+- You should have 3 files in `ls -l`:
+```
+redhac.ca-chain.pem
+redhac.cert-chain.pem
+redhac.key.pem
+```
 
 **4. Create Kubernetes Secrets**
 ```
-kubectl create secret tls redhac-tls-server --key="../redhac.local.key.pem" --cert="../redhac.local.cert.pem" && \
-kubectl create secret tls redhac-tls-client --key="../redhac.local.key.pem" --cert="../redhac.local.cert.pem" && \
-kubectl create secret generic redhac-server-ca --from-file ../ca-chain.pem && \
-kubectl create secret generic redhac-client-ca --from-file ../ca-chain.pem
+kubectl create secret tls redhac-tls-server --key="redhac.key.pem" --cert="redhac.cert-chain.pem" && \
+kubectl create secret tls redhac-tls-client --key="redhac.key.pem" --cert="redhac.cert-chain.pem" && \
+kubectl create secret generic redhac-server-ca --from-file redhac.ca-chain.pem && \
+kubectl create secret generic redhac-client-ca --from-file redhac.ca-chain.pem
 ``` 
 
 ### Reference Config
@@ -260,13 +286,14 @@ At the time of writing, the configuration can only be done via the env.
 # accepts 'true|false', defaults to 'false'
 HA_MODE=true
 
-# The connection strings (with hostnames) of the HA instances as a CSV
-# Format: 'scheme://hostname:port'
-HA_HOSTS="http://redhac.redhac:8080, http://redhac.redhac:8180 ,http://redhac.redhac:8280"
+# The connection strings (with hostnames) of the HA instances
+# as a CSV. Format: 'scheme://hostname:port'
+HA_HOSTS="http://redhac.redhac:8080, http://redhac.redhac:8180, http://redhac.redhac:8280"
 
-# This can overwrite the hostname which is used to identify each cache member.
-# Useful in scenarios, where all members are on the same host or for testing.
-# You need to add the port, since `redhac` will do an exact match to find "me".
+# This can overwrite the hostname which is used to identify each
+# cache member. Useful in scenarios, where all members are on the
+# same host or for testing. You need to add the port, since `redhac`
+# will do an exact match to find "me".
 #HOSTNAME_OVERWRITE="127.0.0.1:8080"
 
 # Secret token, which is used to authenticate the cache members
@@ -275,38 +302,48 @@ CACHE_AUTH_TOKEN=SuperSafeSecretToken1337
 # Enable / disable TLS for the cache communication (default: true)
 CACHE_TLS=true
 
-# The path to the server TLS certificate PEM file (default: tls/certs/redhac.local.cert.pem)
-CACHE_TLS_SERVER_CERT=tls/redhac.local.cert.pem
-# The path to the server TLS key PEM file (default: tls/certs/redhac.local.key.pem)
-CACHE_TLS_SERVER_KEY=tls/redhac.local.key.pem
+# The path to the server TLS certificate PEM file
+# default: tls/certs/redhac.cert-chain.pem
+CACHE_TLS_SERVER_CERT=tls/redhac.cert-chain.pem
+# The path to the server TLS key PEM file
+# default: tls/certs/redhac.key.pem
+CACHE_TLS_SERVER_KEY=tls/redhac.key.pem
 
-# The path to the client mTLS certificate PEM file (default: tls/certs/redhac.local.cert.pem)
-CACHE_TLS_CLIENT_CERT=tls/redhac.local.cert.pem
-# The path to the client mTLS key PEM file (default: tls/certs/redhac.local.key.pem)
-CACHE_TLS_CLIENT_KEY=tls/redhac.local.key.pem
+# The path to the client mTLS certificate PEM file. This is optional.
+CACHE_TLS_SERVER_CERT=tls/redhac.cert-chain.pem
+# The path to the client mTLS key PEM file. This is optional.
+CACHE_TLS_SERVER_KEY=tls/redhac.key.pem
 
-# If not empty, the PEM file from the specified location will be added as the CA certificate
-# chain for validating the servers TLS certificate (default: tls/certs/ca-chain.cert.pem)
-CACHE_TLS_CA_SERVER=tls/ca-chain.cert.pem
+# If not empty, the PEM file from the specified location will be
+# added as the CA certificate chain for validating
+# the servers TLS certificate. This is optional.
+CACHE_TLS_CA_SERVER=tls/redhac.ca-chain.pem
+# If not empty, the PEM file from the specified location will
+# be added as the CA certificate chain for validating
+# the clients mTLS certificate. This is optional.
+CACHE_TLS_CA_CLIENT=tls/redhac.ca-chain.pem
 
-# If not empty, the PEM file from the specified location will be added as the CA certificate
-# chain for validating the clients mTLS certificate (default: tls/certs/ca-chain.cert.pem)
-CACHE_TLS_CA_CLIENT=tls/ca-chain.cert.pem
-
-# The domain / CN the client should validate the certificate against. This domain MUST be
-# inside the 'X509v3 Subject Alternative Name' when you take a look at the servers certificate
-# with the openssl tool. (default: redhac.local)
+# The domain / CN the client should validate the certificate
+# against. This domain MUST be inside the
+# 'X509v3 Subject Alternative Name' when you take a look at 
+# the servers certificate with the openssl tool.
+# default: redhac.local
 CACHE_TLS_CLIENT_VALIDATE_DOMAIN=redhac.local
-# Can be used if you need to overwrite the SNI when the client connects to the server, for
-# instance if you are behind a loadbalancer which combines multiple certificates. (default: "")
+
+# Can be used if you need to overwrite the SNI when the 
+# client connects to the server, for instance if you are 
+# behind a loadbalancer which combines multiple certificates. 
+# default: ""
 #CACHE_TLS_SNI_OVERWRITE=
 
-# Define different buffer sizes for channels between the components
-# Buffer for client request on the incoming stream - server side (default: 128)
+# Define different buffer sizes for channels between the 
+# components. Buffer for client request on the incoming 
+# stream - server side (default: 128)
 # Makes sense to have the CACHE_BUF_SERVER roughly set to:
 # `(number of total HA cache hosts - 1) * CACHE_BUF_CLIENT`
 CACHE_BUF_SERVER=128
-# Buffer for client requests to remote servers for all cache operations (default: 64)
+# Buffer for client requests to remote servers for all cache 
+# operations (default: 64)
 CACHE_BUF_CLIENT=64
 
 # Connections Timeouts
@@ -316,15 +353,18 @@ CACHE_KEEPALIVE_INTERVAL=5
 # The keepalive ping timeout in seconds (default: 5)
 CACHE_KEEPALIVE_TIMEOUT=5
 
-# The timeout for the leader election. If a newly saved leader request has not reached quorum
-# after the timeout, the leader will be reset and a new request will be sent out.
-# CAUTION: This should not be below CACHE_RECONNECT_TIMEOUT_UPPER, since cold starts and
+# The timeout for the leader election. If a newly saved leader
+# request has not reached quorum after the timeout, the leader
+# will be reset and a new request will be sent out.
+# CAUTION: This should not be below 
+# CACHE_RECONNECT_TIMEOUT_UPPER, since cold starts and
 # elections will be problematic in that case.
 # value in seconds, default: 5
 CACHE_ELECTION_TIMEOUT=5
 
-# These 2 values define the reconnect timeout for the HA Cache Clients.
-# The values are in ms and a random between these 2 will be chosen each time to avoid conflicts
+# These 2 values define the reconnect timeout for the HA Cache
+# Clients. The values are in ms and a random between these 2 
+# will be chosen each time to avoid conflicts
 # and race conditions (default: 2500)
 CACHE_RECONNECT_TIMEOUT_LOWER=2500
 # (default: 5000)
