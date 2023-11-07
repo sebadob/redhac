@@ -33,9 +33,9 @@ lazy_static! {
         .expect("Error parsing 'CACHE_BUF_SERVER' to usize");
     static ref UPTIME: Instant = Instant::now();
     static ref PATH_TLS_CERT: String = env::var("CACHE_TLS_SERVER_CERT")
-        .unwrap_or_else(|_| String::from("tls/redhac.local.cert.pem"));
-    static ref PATH_TLS_KEY: String = env::var("CACHE_TLS_SERVER_KEY")
-        .unwrap_or_else(|_| String::from("tls/redhac.local.key.pem"));
+        .unwrap_or_else(|_| String::from("tls/redhac.cert-chain.pem"));
+    static ref PATH_TLS_KEY: String =
+        env::var("CACHE_TLS_SERVER_KEY").unwrap_or_else(|_| String::from("tls/redhac.key.pem"));
     static ref PATH_CLIENT_CA: Option<String> = env::var("CACHE_TLS_CA_CLIENT").ok();
 }
 
