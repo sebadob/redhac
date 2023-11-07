@@ -33,11 +33,10 @@ lazy_static! {
         .expect("Error parsing 'CACHE_BUF_SERVER' to usize");
     static ref UPTIME: Instant = Instant::now();
     static ref PATH_TLS_CERT: String = env::var("CACHE_TLS_SERVER_CERT")
-        .unwrap_or_else(|_| String::from("tls/redhac.local.cert.pem"));
-    static ref PATH_TLS_KEY: String = env::var("CACHE_TLS_SERVER_KEY")
-        .unwrap_or_else(|_| String::from("tls/redhac.local.key.pem"));
-    static ref PATH_CLIENT_CA: String =
-        env::var("CACHE_TLS_CA_CLIENT").unwrap_or_else(|_| String::from("tls/ca-chain.cert.pem"));
+        .unwrap_or_else(|_| String::from("tls/redhac.cert-chain.pem"));
+    static ref PATH_TLS_KEY: String =
+        env::var("CACHE_TLS_SERVER_KEY").unwrap_or_else(|_| String::from("tls/redhac.key.pem"));
+    static ref PATH_CLIENT_CA: Option<String> = env::var("CACHE_TLS_CA_CLIENT").ok();
 }
 
 pub(crate) type CacheMap = HashMap<String, flume::Sender<CacheReq>>;
@@ -125,11 +124,9 @@ impl RpcCacheService {
 
             let mut cfg = ServerTlsConfig::new().identity(id);
 
-            if !PATH_CLIENT_CA.is_empty() {
-                debug!("Loading client CA from {}", *PATH_CLIENT_CA);
-                let ca = fs::read(&*PATH_CLIENT_CA)
-                    .await
-                    .expect("Error reading client TLS CA");
+            if let Some(path) = &*PATH_CLIENT_CA {
+                debug!("Loading client CA from {}", path);
+                let ca = fs::read(path).await.expect("Error reading client TLS CA");
                 let ca_chain = Certificate::from_pem(ca);
                 cfg = cfg.client_ca_root(ca_chain);
             }
