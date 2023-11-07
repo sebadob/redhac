@@ -310,9 +310,9 @@ CACHE_TLS_SERVER_CERT=tls/redhac.cert-chain.pem
 CACHE_TLS_SERVER_KEY=tls/redhac.key.pem
 
 # The path to the client mTLS certificate PEM file. This is optional.
-CACHE_TLS_SERVER_CERT=tls/redhac.cert-chain.pem
+CACHE_TLS_CLIENT_CERT=tls/redhac.cert-chain.pem
 # The path to the client mTLS key PEM file. This is optional.
-CACHE_TLS_SERVER_KEY=tls/redhac.key.pem
+CACHE_TLS_CLIENT_KEY=tls/redhac.key.pem
 
 # If not empty, the PEM file from the specified location will be
 # added as the CA certificate chain for validating
