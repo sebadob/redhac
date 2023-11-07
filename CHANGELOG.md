@@ -20,6 +20,8 @@ mTLS setup is now optional with this change.
 
 Additionally, the TLS certificate generation in the Readme and Docs have been updated and use
 [Nioca](https://github.com/sebadob/nioca) for this task now, which is a lot more comfortable.
+The test TLS certificates are checked into git as well for a faster start and evaluation.  
+Do not use them in production!
 
 ## 0.8.0
 
