@@ -41,7 +41,7 @@ msrv-verify:
     cargo msrv verify
 
 
-# find's the new MSRF, if it needs a bump
+# find's the new MSRV, if it needs a bump
 msrv-find:
     cargo msrv --min 1.65.0
 
