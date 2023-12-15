@@ -1,6 +1,6 @@
 [package]
 name = "redhac"
-version = "0.9.0"
+version = "0.9.1"
 edition = "2021"
 rust-version = "1.65.0"
 license = "Apache-2.0 OR MIT"
@@ -30,7 +30,7 @@ rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1.21.2", features = ["full"] }
 tokio-stream = "0.1.5"
-tonic = { version = "0.10", features = ["gzip", "tls", "tls-webpki-roots"] }
+tonic = { version = "0.10.2", features = ["gzip", "tls", "tls-webpki-roots"] }
 tower = "0.4"
 tracing = "0.1"
 
@@ -38,9 +38,6 @@ tracing = "0.1"
 ahash = "0.8.0"
 flate2 = "1.0.6"
 crc32fast = "1.1.2"
-# for tonic v0.10
-rustls = "0.21.7"
-hyper = "0.14.26"
 
 [dev-dependencies]
 criterion = "0.5"
