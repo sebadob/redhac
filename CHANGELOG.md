@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+
+Typo corrections in documentation and removed now obsolete minimal-versions dependencies.
+
 ## 0.9.0
 
 ### Changes
