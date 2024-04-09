@@ -33,7 +33,8 @@ build:
     #!/usr/bin/env bash
     set -euxo pipefail
     # build as musl to make sure this works
-    cargo build --release --target x86_64-unknown-linux-musl
+    #cargo build --release --target x86_64-unknown-linux-musl
+    cargo build --release
 
 
 # verifies the MSRV
@@ -43,7 +44,7 @@ msrv-verify:
 
 # find's the new MSRV, if it needs a bump
 msrv-find:
-    cargo msrv --min 1.65.0
+    cargo msrv --min 1.70.0
 
 
 # verify thats everything is good
@@ -71,6 +72,13 @@ release: verfiy-is-clean
 
     git tag "v$TAG"
     git push origin "v$TAG"
+
+
+# dry-run publishing the latest version
+publish-dry: verfiy-is-clean
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    cargo publish --dry-run
 
 
 # publishes the current version to cargo.io

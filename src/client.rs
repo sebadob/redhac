@@ -356,12 +356,21 @@ async fn run_client(
         });
 
         debug!("Starting the Sending Stream to the Server");
-        tx_quorum
+        if let Err(err)= tx_quorum
             .send_async(QuorumReq::UpdateServer {
                 server: server.clone(),
             })
-            .await
-            .unwrap();
+            .await {
+            // can fail in case of a conflict resolution, if the other side has just shut down
+            error!("tx_quorum send error: {:?}", err);
+            callback_handle.abort();
+            time::sleep(Duration::from_millis(get_rand_between(
+                *RECONNECT_TIMEOUT_LOWER,
+                *RECONNECT_TIMEOUT_UPPER,
+            )))
+                .await;
+            continue;
+        }
 
         // Sending Stream to the Server
         // the ReceiverStream only accepts an mpsc channel

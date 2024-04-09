@@ -270,7 +270,7 @@ pub(crate) async fn quorum_handler(
 
                                 state = QuorumState::Follower;
                                 health_state.state = QuorumState::Follower;
-                                health_state.tx_leader = server.tx.clone();
+                                health_state.tx_leader.clone_from(&server.tx);
                             }
                         }
 
@@ -294,7 +294,7 @@ pub(crate) async fn quorum_handler(
 
                                         state = QuorumState::Follower;
                                         health_state.state = QuorumState::Follower;
-                                        health_state.tx_leader = server.tx.clone();
+                                        health_state.tx_leader.clone_from(&server.tx);
 
                                         tx_remote
                                             .send_async(RpcRequest::LeaderReqAck {
