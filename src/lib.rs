@@ -277,11 +277,12 @@
 //!         &mut cache_config_1,
 //!         // optional notification channel: `Option<mpsc::Sender<CacheNotify>>`
 //!         None,
-//!         // We need to overwrite the hostname so we can start all nodes on the same host for this
+//!         // We need to overwrite the hostname, so we can start all nodes on the same host for this
 //!         // example. Usually, this will be set to `None`
 //!         Some("127.0.0.1:7001".to_string()),
 //!     )
 //!     .await?;
+//!     time::sleep(Duration::from_millis(100)).await;
 //!     println!("First cache node started");
 //!
 //!     // Mimic the other 2 cache members. This should usually not be done in the same code - only
@@ -295,6 +296,7 @@
 //!         Some("127.0.0.1:7002".to_string()),
 //!     )
 //!     .await?;
+//!     time::sleep(Duration::from_millis(100)).await;
 //!     println!("2nd cache node started");
 //!     // Now after the 2nd cache member has been started, we would already have quorum and a
 //!     // working cache layer. As long as there is no leader and / or quorum, the cache will not
@@ -309,6 +311,7 @@
 //!         Some("127.0.0.1:7003".to_string()),
 //!     )
 //!     .await?;
+//!     time::sleep(Duration::from_millis(100)).await;
 //!     println!("3rd cache node started");
 //!
 //!     // For the sake of this example again, we need to wait until the cache is in a healthy
@@ -1004,12 +1007,12 @@ pub(crate) async fn insert_from_leader(
     };
 
     // double check, that we are really the leader
-    // this might get removed after enough testing, if it provides a performance benefit
     if health_state.state != QuorumState::Leader && health_state.state != QuorumState::LeaderSwitch
     {
-        let error = "Execution of 'insert_from_leader' is not allowed on a non-leader".to_string();
-        warn!("is_leader state: {:?}", health_state.state);
-        // TODO remove this panic after testing
+        let error = format!("Execution of 'insert_from_leader' is not allowed on a non-leader: {:?}", health_state.state);
+        error!("{}", error);
+        // TODO we once ended up here during conflict resolution -> try to reproduce
+        // rather panic than have an inconsistent state
         panic!("{}", error);
     }
 

@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
     .await?;
     info!("First cache node started");
 
-    // Now just sleep until we ctrl + c so we can start the other members and observe the behavior
+    // Now just sleep until we ctrl + c, so we can start the other members and observe the behavior
     time::sleep(Duration::from_secs(6000)).await;
 
     // Let's simulate a graceful shutdown
