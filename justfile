@@ -33,7 +33,8 @@ build:
     #!/usr/bin/env bash
     set -euxo pipefail
     # build as musl to make sure this works
-    cargo build --release --target x86_64-unknown-linux-musl
+    #cargo build --release --target x86_64-unknown-linux-musl
+    cargo build --release
 
 
 # verifies the MSRV
