@@ -1,6 +1,6 @@
 [package]
 name = "redhac"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2021"
 rust-version = "1.65.0"
 license = "Apache-2.0 OR MIT"
@@ -15,7 +15,7 @@ repository = "https://github.com/sebadob/redhac"
 anyhow = "1.0"
 async-stream = "0.3"
 bincode = "1"
-cached = { version = "0.46", features = ["async", "async_tokio_rt_multi_thread"] }
+cached = { version = "0.49.3", features = ["async", "async_tokio_rt_multi_thread"] }
 chrono = { version = "0.4.31", default-features = false, features = ["clock", "serde", "std"] }
 ctrlc = { version = "3", features = ["termination"] }
 dotenvy = "0.15"
@@ -30,7 +30,7 @@ rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1.21.2", features = ["full"] }
 tokio-stream = "0.1.5"
-tonic = { version = "0.10.2", features = ["gzip", "tls", "tls-webpki-roots"] }
+tonic = { version = "0.11.0", features = ["gzip", "tls", "tls-webpki-roots"] }
 tower = "0.4"
 tracing = "0.1"
 
@@ -46,4 +46,4 @@ tokio-test = "0.4"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "tracing"] }
 
 [build-dependencies]
-tonic-build = "0.10"
+tonic-build = "0.11.0"
