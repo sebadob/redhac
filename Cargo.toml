@@ -2,7 +2,7 @@
 name = "redhac"
 version = "0.10.0"
 edition = "2021"
-rust-version = "1.65.0"
+rust-version = "1.70.0"
 license = "Apache-2.0 OR MIT"
 authors = ["Sebastian Dobe <sebastiandobe@mailbox.org"]
 categories = ["caching"]
