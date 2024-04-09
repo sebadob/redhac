@@ -5,6 +5,12 @@ edition = "2021"
 license = "Apache-2.0 OR MIT"
 authors = ["Sebastian Dobe <sebastiandobe@mailbox.org"]
 
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
 [dependencies]
 anyhow = "1"
 flume = "0.11"
