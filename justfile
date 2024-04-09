@@ -73,6 +73,13 @@ release: verfiy-is-clean
     git push origin "v$TAG"
 
 
+# dry-run publishing the latest version
+publish-dry: verfiy-is-clean
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    cargo publish --dry-run
+
+
 # publishes the current version to cargo.io
 publish: verfiy-is-clean
     #!/usr/bin/env bash
