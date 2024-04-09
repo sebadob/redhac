@@ -1438,7 +1438,7 @@ pub async fn start_cluster(
         if !h.contains(&hostname) {
             ha_clients.push(h.trim().to_owned())
         } else {
-            host_srv_addr = h.trim().to_owned();
+            h.trim().clone_into(&mut host_srv_addr);
         }
     });
     info!(
