@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.10.0
+
+- core dependencies have been updated
+- latest rust nightly clippy lints have been applied
+- a very unlikely but possible channel panic in case of a conflict resolution has been fixed
+
 ## 0.9.1
 
 Typo corrections in documentation and removed now obsolete minimal-versions dependencies.
