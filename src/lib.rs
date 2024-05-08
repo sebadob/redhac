@@ -1546,10 +1546,11 @@ where
         match req_opt.unwrap() {
             CacheReq::Get { entry, resp } => {
                 let cache_entry = cache.cache_get(&entry).cloned();
-                resp.send_async(cache_entry)
-                    .await
-                    .map_err(|_| error!("Error sending cache entry '{}' back", entry))
-                    .unwrap();
+                if let Err(err) = resp.send_async(cache_entry)
+                    .await {
+                    // this may happen if the other side cancels the receiving side abruptly
+                    debug!("Error sending cache entry '{}' back: {:?}", entry, err);
+                }
             }
             CacheReq::Put { entry, value } => {
                 cache.cache_set(entry, value);
