@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.10.1
+
+- removes a possible panic that could occur, when a cache-receiving side abruptly cancels the task
+  without waiting for an answer
+
 ## v0.10.0
 
 - core dependencies have been updated
