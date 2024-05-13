@@ -257,7 +257,7 @@ async fn run_client(
             continue;
         }
         let channel = chan_res.unwrap().ready_oneshot().await?;
-        info!(
+        debug!(
             "Cache connection channel established successfully to host '{}'",
             host
         );
@@ -813,6 +813,8 @@ async fn run_client(
                 }
 
                 Err(err) => {
+                    // TODO push this into the debug level after enough testing
+                    // -> duplicate logging with the error a few lines below
                     error!(
                         "Received an error in client receiver for Host {} - exiting: {:?}",
                         host, err
