@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.10.2
+
+- Send some additional TCP keepalives for connections that are idle for longer periods of time to
+  prevent them from being dropped.
+- a little bit reduced logging for the `info` level
+
 ## v0.10.1
 
 - removes a possible panic that could occur, when a cache-receiving side abruptly cancels the task
