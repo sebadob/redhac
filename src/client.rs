@@ -232,6 +232,8 @@ async fn run_client(
             let mut channel = Channel::builder(uri)
                 .tls_config(cfg)
                 .expect("Error creating TLS Config for Cache Client")
+                .tcp_keepalive(Some(Duration::from_secs(30)))
+                .http2_keep_alive_interval(Duration::from_secs(30))
                 .keep_alive_while_idle(true);
 
             if !CACHE_TLS_SNI_OVERWRITE.is_empty() {
@@ -242,6 +244,8 @@ async fn run_client(
             channel.connect().await
         } else {
             Channel::builder(uri)
+                .tcp_keepalive(Some(Duration::from_secs(30)))
+                .http2_keep_alive_interval(Duration::from_secs(30))
                 .keep_alive_while_idle(true)
                 .connect()
                 .await
