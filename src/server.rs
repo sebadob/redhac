@@ -106,6 +106,7 @@ impl RpcCacheService {
 
         let svc = CacheServer::with_interceptor(rpc_cache_service, check_auth);
         let mut server = Server::builder()
+            .tcp_keepalive(Some(Duration::from_secs(interval)))
             .http2_keepalive_interval(Some(Duration::from_secs(interval)))
             .http2_keepalive_timeout(Some(Duration::from_millis(timeout)))
             .http2_adaptive_window(Some(true))
