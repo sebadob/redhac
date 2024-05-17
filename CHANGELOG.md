@@ -6,8 +6,9 @@
     - `CACHE_RECONNECT_TIMEOUT_LOWER=500`
     - `CACHE_RECONNECT_TIMEOUT_UPPER=2000`
     - `CACHE_ELECTION_TIMEOUT=2`
-  to have quicker recoveries in case of a broken pipe or other errors
+      to have quicker recoveries in case of a broken pipe or other errors
 - additionally reduced tracing output on the `info` level
+- the `insert` functions have been made more resilient during graceful leader switches and fail-overs
 
 ## v0.10.2
 
@@ -37,9 +38,10 @@ Typo corrections in documentation and removed now obsolete minimal-versions depe
 
 The TLS setup has been changed a bit to make it more flexible.  
 The only mandatory values with `CACHE_TLS=true` are now:
+
 - `CACHE_TLS_SERVER_CERT` with new default: tls/redhac.cert-chain.pem
 - `CACHE_TLS_SERVER_KEY` with new default: tls/redhac.key.pem
-While the following ones are now optional and do not have a default anymore:
+  While the following ones are now optional and do not have a default anymore:
 - `CACHE_TLS_CLIENT_CERT`
 - `CACHE_TLS_CLIENT_KEY`
 - `CACHE_TLS_CA_SERVER`
@@ -82,19 +84,19 @@ This is a maintenance release.
 - fix minimal versions for new dependencies
 - introduce a justfile for easier maintenance
 - bump MSRV to 1.65.0 due to core dependency updates
-[bcdfc62](https://github.com/sebadob/redhac/commit/bcdfc62665320a9ad3f832d0c28f0175d6e447c2)
-[506c9c6](https://github.com/sebadob/redhac/commit/506c9c6c2c2fb3cbb1253cabd6bf4cdf9b01f4b0)
+  [bcdfc62](https://github.com/sebadob/redhac/commit/bcdfc62665320a9ad3f832d0c28f0175d6e447c2)
+  [506c9c6](https://github.com/sebadob/redhac/commit/506c9c6c2c2fb3cbb1253cabd6bf4cdf9b01f4b0)
 
 ## v0.6.0
 
 - `cache_insert` and `cache_remove` default to their non-HA counterparts if `HA_MODE == false`
-[bcde62c](https://github.com/sebadob/redhac/commit/bcde62cbea233a68c86b21cd7300c150b2690bbf)
+  [bcde62c](https://github.com/sebadob/redhac/commit/bcde62cbea233a68c86b21cd7300c150b2690bbf)
 - deprecated code elements cleaned up
-[51fbe7f](https://github.com/sebadob/redhac/commit/51fbe7fe72598432c978ee24587a7a65e10f1c46)
+  [51fbe7f](https://github.com/sebadob/redhac/commit/51fbe7fe72598432c978ee24587a7a65e10f1c46)
 - stability improvements inside certain K8s clusters - broken pipe prevention
-[e20bc39](https://github.com/sebadob/redhac/commit/e20bc39b925bb7738a0025a733e554efa1b4a546)
+  [e20bc39](https://github.com/sebadob/redhac/commit/e20bc39b925bb7738a0025a733e554efa1b4a546)
 - removed the proto file build from `build.rs` to make docs.rs work (hopefully)
-[b53a2d3](https://github.com/sebadob/redhac/commit/b53a2d38f99f08bb9649035195228dc46be9cc7f)
+  [b53a2d3](https://github.com/sebadob/redhac/commit/b53a2d38f99f08bb9649035195228dc46be9cc7f)
 
 ## v0.5.0
 
