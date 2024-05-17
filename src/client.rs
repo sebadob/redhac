@@ -294,7 +294,7 @@ async fn run_client(
             loop {
                 match callback_rx.recv_async().await {
                     Err(err) => {
-                        error!("Received None over get_rx - exiting: {:?}", err);
+                        debug!("Received None over get_rx - exiting: {:?}", err);
                         break;
                     }
 
