@@ -722,7 +722,7 @@ impl Cache for RpcCacheService {
             // stream has ended - client is dead
             client.state = RpcServerState::Dead;
             warn!(
-                "Cache Server: Stream with client '{:?}' on host '{}' ended",
+                "cache stream with client '{:?}' on host '{}' ended",
                 client, host_addr
             );
         });

@@ -225,15 +225,15 @@
 //! # after the timeout, the leader will be reset and a new request will be sent out.
 //! # CAUTION: This should not be below CACHE_RECONNECT_TIMEOUT_UPPER, since cold starts and
 //! # elections will be problematic in that case.
-//! # value in seconds, default: 5
-//! CACHE_ELECTION_TIMEOUT=5
+//! # value in seconds, default: 2
+//! CACHE_ELECTION_TIMEOUT=2
 //!
 //! # These 2 values define the reconnect timeout for the HA Cache Clients.
 //! # The values are in ms and a random between these 2 will be chosen each time to avoid conflicts
-//! # and race conditions (default: 2500)
-//! CACHE_RECONNECT_TIMEOUT_LOWER=2500
-//! # (default: 5000)
-//! CACHE_RECONNECT_TIMEOUT_UPPER=5000
+//! # and race conditions (default: 500)
+//! CACHE_RECONNECT_TIMEOUT_LOWER=500
+//! # (default: 2000)
+//! CACHE_RECONNECT_TIMEOUT_UPPER=2000
 //! ```
 //!
 //! ## Example
@@ -1483,7 +1483,7 @@ pub async fn start_cluster(
         loop {
             interval.tick().await;
             if let Err(err) = tx_remote.send_async(RpcRequest::Ping).await {
-                error!("rpc stream ping handler: {:?}", err);
+                debug!("cannot ping remote caches: {:?}", err);
             }
         }
     });

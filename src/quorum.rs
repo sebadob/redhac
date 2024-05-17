@@ -14,7 +14,7 @@ use tracing::{debug, error, info, warn};
 lazy_static! {
     static ref ELECTION_TIMEOUT: u64 = {
         let t = env::var("CACHE_ELECTION_TIMEOUT")
-            .unwrap_or_else(|_| String::from("5"))
+            .unwrap_or_else(|_| String::from("2"))
             .parse::<u64>()
             .expect("Error parsing 'CACHE_ELECTION_TIMEOUT' to u64");
         t * 1000
@@ -1085,7 +1085,7 @@ async fn check_leadership_conflict(
             // To solve conflicts better, we send out a LeaderSwitch in this case to
             // also inform all others that we have the higher priority.
             // TODO should we keep doing this or does it even work without it too?
-            warn!(
+            debug!(
                 "{} received new LeaderReq with lower priority - sending out switch requests",
                 whoami
             );
