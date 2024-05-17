@@ -1500,8 +1500,8 @@ pub async fn start_cluster(
         // wait for the shutdown signal
         let tx_ack = rx_exit
             .recv_async()
-            .await
-            .expect("No tx_ack given for cache exit channel");
+            .await;
+            // .expect("No tx_ack given for cache exit channel");
 
         // send LeaderLeave, if we are the current cluster leader
         tx_quorum.send_async(QuorumReq::HostShutdown).await.unwrap();
@@ -1513,7 +1513,9 @@ pub async fn start_cluster(
         clients_handle.abort();
         quorum_handle.abort();
 
-        tx_ack.send(()).unwrap();
+        if let Ok(tx) = tx_ack {
+            tx.send(()).unwrap();
+        }
         // Do a short sleep to make sure messages were sent out
         time::sleep(Duration::from_millis(10)).await;
     });
