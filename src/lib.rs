@@ -928,7 +928,6 @@ where
             .await?;
         }
         QuorumState::LeaderTxAwait(_) | QuorumState::LeadershipRequested(_) => {
-            // TODO maybe do not return an Err here?
             return Err(CacheError {
                 error: "HA Cache has no leader yet - cache insert not possible".to_string(),
             });
@@ -953,8 +952,11 @@ where
                 .send_async(req)
                 .await?;
         }
-        QuorumState::Undefined => unreachable!(),
-        QuorumState::Retry => unreachable!(),
+        QuorumState::Undefined | QuorumState::Retry => {
+            return Err(CacheError {
+                error: "The HA cache layer is not ready".to_string(),
+            })
+        }
     }
 
     if let Some(rx) = callback_rx {
@@ -1006,15 +1008,13 @@ pub(crate) async fn insert_from_leader(
         health_state
     };
 
-    // double check, that we are really the leader
-    if health_state.state != QuorumState::Leader && health_state.state != QuorumState::LeaderSwitch
-    {
-        let error = format!("Execution of 'insert_from_leader' is not allowed on a non-leader: {:?}", health_state.state);
-        error!("{}", error);
-        // TODO we once ended up here during conflict resolution -> try to reproduce
-        // rather panic than have an inconsistent state
-        panic!("{}", error);
-    }
+    // Will are not doing an additional Leader check at this point and we assume, that this function will
+    // only be called from a leader.
+    // The reason the additional check has been removed was, that there are no transactions for the cache layer.
+    // This means, when we check during the normal insert function for the leader, we might have a difference in just
+    // these few microseconds, which would lead to an error at this point.
+    // This might happen during the very initial cache layer setup during conflict resolution, when we get really
+    // unlucky, or during a leader switch, either because the old one died or the current does a graceful shutdown.
 
     let tx_cache = cache_config.cache_map.get(&cache_name);
     if tx_cache.is_none() {
@@ -1498,10 +1498,8 @@ pub async fn start_cluster(
         .expect("cache_config.tx_quorum to never be empty here");
     tokio::spawn(async move {
         // wait for the shutdown signal
-        let tx_ack = rx_exit
-            .recv_async()
-            .await;
-            // .expect("No tx_ack given for cache exit channel");
+        let tx_ack = rx_exit.recv_async().await;
+        // .expect("No tx_ack given for cache exit channel");
 
         // send LeaderLeave, if we are the current cluster leader
         tx_quorum.send_async(QuorumReq::HostShutdown).await.unwrap();
@@ -1548,8 +1546,7 @@ where
         match req_opt.unwrap() {
             CacheReq::Get { entry, resp } => {
                 let cache_entry = cache.cache_get(&entry).cloned();
-                if let Err(err) = resp.send_async(cache_entry)
-                    .await {
+                if let Err(err) = resp.send_async(cache_entry).await {
                     // this may happen if the other side cancels the receiving side abruptly
                     debug!("Error sending cache entry '{}' back: {:?}", entry, err);
                 }
