@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.10.3
+
+- lower default values for:
+    - `CACHE_RECONNECT_TIMEOUT_LOWER=500`
+    - `CACHE_RECONNECT_TIMEOUT_UPPER=2000`
+    - `CACHE_ELECTION_TIMEOUT=2`
+  to have quicker recoveries in case of a broken pipe or other errors
+- additionally reduced tracing output on the `info` level
+
 ## v0.10.2
 
 - Send some additional TCP keepalives for connections that are idle for longer periods of time to
