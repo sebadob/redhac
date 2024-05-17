@@ -188,7 +188,7 @@ impl Cache for RpcCacheService {
             .unwrap();
 
         let has_quorum = match report.health {
-            QuorumHealth::Good => true,
+            QuorumHealth::Good | QuorumHealth::Degraded => true,
             QuorumHealth::Bad => false,
         };
 
@@ -515,7 +515,7 @@ impl Cache for RpcCacheService {
                                             let report = rx_quorum.await.expect("");
 
                                             let quorum = match report.health {
-                                                QuorumHealth::Good => true,
+                                                QuorumHealth::Good | QuorumHealth::Degraded => true,
                                                 QuorumHealth::Bad => false,
                                             };
                                             let state = match report.state {
