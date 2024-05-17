@@ -35,9 +35,9 @@ tower = "0.4"
 tracing = "0.1"
 
 # make minimal versions happy
-ahash = "0.8.0"
-flate2 = "1.0.6"
-crc32fast = "1.1.2"
+#ahash = "0.8.0"
+#flate2 = "1.0.6"
+#crc32fast = "1.1.2"
 
 [dev-dependencies]
 criterion = "0.5"
