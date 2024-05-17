@@ -14,7 +14,7 @@ use tonic::metadata::MetadataValue;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity, Uri};
 use tonic::{Request, Status};
 use tower::util::ServiceExt;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::quorum::{AckLevel, RpcServer, RpcServerState};
 use crate::rpc::cache;
@@ -29,11 +29,11 @@ lazy_static! {
         .parse::<usize>()
         .expect("Error parsing 'CACHE_BUF_CLIENT' to usize");
     pub(crate) static ref RECONNECT_TIMEOUT_LOWER: u64 = env::var("CACHE_RECONNECT_TIMEOUT_LOWER")
-        .unwrap_or_else(|_| String::from("2500"))
+        .unwrap_or_else(|_| String::from("500"))
         .parse::<u64>()
         .expect("Error parsing 'CACHE_RECONNECT_TIMEOUT_LOWER' to u64");
     pub(crate) static ref RECONNECT_TIMEOUT_UPPER: u64 = env::var("CACHE_RECONNECT_TIMEOUT_UPPER")
-        .unwrap_or_else(|_| String::from("5000"))
+        .unwrap_or_else(|_| String::from("2000"))
         .parse::<u64>()
         .expect("Error parsing 'CACHE_RECONNECT_TIMEOUT_UPPER' to u64");
     static ref PATH_TLS_CERT: Option<String> = env::var("CACHE_TLS_CLIENT_CERT").ok();
@@ -294,7 +294,7 @@ async fn run_client(
             loop {
                 match callback_rx.recv_async().await {
                     Err(err) => {
-                        error!("Received None over get_rx - exiting: {:?}", err);
+                        debug!("Received None over get_rx - exiting: {:?}", err);
                         break;
                     }
 
@@ -366,7 +366,7 @@ async fn run_client(
             })
             .await {
             // can fail in case of a conflict resolution, if the other side has just shut down
-            error!("tx_quorum send error: {:?}", err);
+            debug!("tx_quorum send error: {:?}", err);
             callback_handle.abort();
             time::sleep(Duration::from_millis(get_rand_between(
                 *RECONNECT_TIMEOUT_LOWER,
@@ -696,9 +696,9 @@ async fn run_client(
             match res_stream.try_next().await {
                 Ok(recv) => {
                     if recv.is_none() {
-                        error!(
-                            "Received None in client receiver for Host {} - exiting: {:?}",
-                            host, recv
+                        warn!(
+                            "Lost connection to remote cache host {}",
+                            host
                         );
                         break;
                     }
@@ -813,9 +813,7 @@ async fn run_client(
                 }
 
                 Err(err) => {
-                    // TODO push this into the debug level after enough testing
-                    // -> duplicate logging with the error a few lines below
-                    error!(
+                    debug!(
                         "Received an error in client receiver for Host {} - exiting: {:?}",
                         host, err
                     );

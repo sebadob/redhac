@@ -1,20 +1,22 @@
-use crate::client::{RpcRequest, RECONNECT_TIMEOUT_UPPER};
-use crate::rpc::cache;
-use crate::server::CacheMap;
-use crate::{get_rand_between, rpc, CacheError, CacheReq};
 use chrono::Utc;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
-use std::env;
-use std::time::Duration;
 use tokio::sync::{oneshot, watch};
 use tokio::time;
 use tracing::{debug, error, info, warn};
 
+use std::collections::HashMap;
+use std::env;
+use std::time::Duration;
+
+use crate::client::{RpcRequest, RECONNECT_TIMEOUT_UPPER};
+use crate::rpc::cache;
+use crate::server::CacheMap;
+use crate::{get_rand_between, rpc, CacheError, CacheReq};
+
 lazy_static! {
     static ref ELECTION_TIMEOUT: u64 = {
         let t = env::var("CACHE_ELECTION_TIMEOUT")
-            .unwrap_or_else(|_| String::from("5"))
+            .unwrap_or_else(|_| String::from("2"))
             .parse::<u64>()
             .expect("Error parsing 'CACHE_ELECTION_TIMEOUT' to u64");
         t * 1000
@@ -66,6 +68,7 @@ impl QuorumHealthState {
     pub fn is_quorum_good(&self) -> Result<(), CacheError> {
         match self.health {
             QuorumHealth::Good => Ok(()),
+            QuorumHealth::Degraded => Ok(()),
             QuorumHealth::Bad => Err(CacheError {
                 error: "QuorumHealth::Bad - cannot operate the HA cache".to_string(),
             }),
@@ -77,6 +80,7 @@ impl QuorumHealthState {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum QuorumHealth {
     Good,
+    Degraded,
     Bad,
 }
 
@@ -314,8 +318,8 @@ pub(crate) async fn quorum_handler(
                         if count >= quorum {
                             match health {
                                 QuorumHealth::Good => {}
-                                QuorumHealth::Bad => {
-                                    info!("QuorumHealth changed from 'Bad' to 'Good'");
+                                QuorumHealth::Bad | QuorumHealth::Degraded => {
+                                    info!("QuorumHealth changed from 'Bad | Degraded' to 'Good'");
 
                                     // If our quorum switched from bad -> good, send out a leadership
                                     // request and set ourselves as leader directly, if we do not already
@@ -346,8 +350,12 @@ pub(crate) async fn quorum_handler(
                                 }
                             }
 
-                            health = QuorumHealth::Good;
-                            health_state.health = QuorumHealth::Good;
+                            health = if count == clients_count {
+                                QuorumHealth::Good
+                            } else {
+                                QuorumHealth::Degraded
+                            };
+                            health_state.health = health.clone();
                         }
                     }
 
@@ -371,6 +379,10 @@ pub(crate) async fn quorum_handler(
                         }
 
                         if count >= quorum {
+                            health = QuorumHealth::Degraded;
+                            health_state.health = health.clone();
+                            warn!("QuorumHealth changed from 'Good' to 'Degraded'");
+
                             if leader_died {
                                 // If this state is set, we have acked to switch to another leader already
                                 if state == QuorumState::LeaderDead {
@@ -401,8 +413,8 @@ pub(crate) async fn quorum_handler(
                             }
                         } else {
                             match health {
-                                QuorumHealth::Good => {
-                                    warn!("QuorumHealth changed from 'Good' to 'Bad' - resetting local cache");
+                                QuorumHealth::Good | QuorumHealth::Degraded => {
+                                    warn!("QuorumHealth changed from 'Good | Degraded' to 'Bad' - resetting local cache");
                                     leader = None;
                                     health = QuorumHealth::Bad;
                                     state = QuorumState::Undefined;
@@ -790,57 +802,101 @@ pub(crate) async fn quorum_handler(
             QuorumReq::LeaderSwitchPriority { req } => {
                 debug!("{}: QuorumReq::LeaderSwitchPriority to: {:?}", whoami, req);
 
-                let do_switch = if let &QuorumState::LeadershipRequested(ts) = &state {
-                    // Only if the remote leader has the higher priority, we will do the switch
-                    // and ignore otherwise.
-                    req.election_ts < ts
-                } else if let Some(RegisteredLeader::Local(ts)) = &leader {
-                    // If we get unlucky or have network latency, this host might already be set as
-                    // a 'real' leader while still waiting for other incoming leadership requests.
-                    // Even in that case, we should handle it properly like above and only switch,
-                    // if the other host has the higher priority.
-                    req.election_ts < *ts
-                } else if let Some(RegisteredLeader::Remote(lead)) = &leader {
-                    // Again, if we get unlucky, a remote host might already be set as a 'real'
-                    // leader while still waiting for other incoming leadership requests.
-                    req.election_ts < lead.election_ts
-                } else {
-                    true
+                let do_switch = match &state {
+                    QuorumState::Leader => {
+                        // if we are the leader, compare priority
+                        if let Some(RegisteredLeader::Local(ts)) = &leader {
+                            req.election_ts < *ts
+                        } else {
+                            unreachable!("If we are the leader, leader can only be Some(RegisteredLeader::Local(_))")
+                        }
+                    }
+                    QuorumState::LeaderDead => true,
+                    QuorumState::LeaderSwitch => true,
+                    QuorumState::LeaderTxAwait(addr) => {
+                        // If we are waiting for another leader TX than this switch request,
+                        // compare priorities
+                        if &req.vote_host != addr {
+                            if let Some(RegisteredLeader::Remote(lead)) = &leader {
+                                req.election_ts < lead.election_ts
+                            } else {
+                                unreachable!("If we await a leader tx, leader can only be Some(RegisteredLeader::Remote(_))")
+                            }
+                        } else {
+                            false
+                        }
+                    }
+                    QuorumState::LeadershipRequested(ts) => {
+                        // Only if the remote leader has the higher priority, we will do the switch
+                        // and ignore otherwise.
+                        req.election_ts < *ts
+                    }
+                    QuorumState::Follower => {
+                        if let Some(RegisteredLeader::Remote(lead)) = &leader {
+                            // If we are unlucky, a remote host might already be set as a 'real'
+                            // leader while still waiting for other incoming leadership requests.
+                            req.election_ts < lead.election_ts
+                        } else {
+                            unreachable!("If we are a follower, leader can only be Some(RegisteredLeader::Remote(_))")
+                        }
+                    }
+                    QuorumState::Undefined => true,
+                    QuorumState::Retry => true,
                 };
 
-                if req.vote_host == whoami {
-                    leader = Some(RegisteredLeader::Local(req.election_ts));
-                    state = QuorumState::Leader;
-                    health_state.state = QuorumState::Leader;
-                    health_state.tx_leader = None;
-                } else if do_switch {
-                    let tx_leader = get_leader_tx(&hosts, &req.vote_host).await;
-                    leader = Some(RegisteredLeader::Remote(RpcServer {
-                        address: req.vote_host.clone(),
-                        state: RpcServerState::Alive,
-                        tx: tx_leader.clone(),
-                        election_ts: req.election_ts,
-                    }));
-                    state = if tx_leader.is_some() {
-                        QuorumState::Follower
+                // let do_switch = if let &QuorumState::LeadershipRequested(ts) = &state {
+                //     // Only if the remote leader has the higher priority, we will do the switch
+                //     // and ignore otherwise.
+                //     req.election_ts < ts
+                // } else if let Some(RegisteredLeader::Local(ts)) = &leader {
+                //     // If we get unlucky or have network latency, this host might already be set as
+                //     // a 'real' leader while still waiting for other incoming leadership requests.
+                //     // Even in that case, we should handle it properly like above and only switch,
+                //     // if the other host has the higher priority.
+                //     req.election_ts < *ts
+                // } else if let Some(RegisteredLeader::Remote(lead)) = &leader {
+                //     // Again, if we get unlucky, a remote host might already be set as a 'real'
+                //     // leader while still waiting for other incoming leadership requests.
+                //     req.election_ts < lead.election_ts
+                // } else {
+                //     true
+                // };
+
+                if do_switch {
+                    if req.vote_host == whoami {
+                        leader = Some(RegisteredLeader::Local(req.election_ts));
+                        state = QuorumState::Leader;
+                        health_state.state = QuorumState::Leader;
+                        health_state.tx_leader = None;
                     } else {
-                        QuorumState::LeaderTxAwait(req.vote_host.clone())
-                    };
-                    health_state.state = state.clone();
-                    health_state.tx_leader = tx_leader;
-
-                    tx_remote
-                        .send_async(RpcRequest::LeaderReqAck {
-                            addr: req.vote_host,
+                        let tx_leader = get_leader_tx(&hosts, &req.vote_host).await;
+                        leader = Some(RegisteredLeader::Remote(RpcServer {
+                            address: req.vote_host.clone(),
+                            state: RpcServerState::Alive,
+                            tx: tx_leader.clone(),
                             election_ts: req.election_ts,
-                        })
-                        .await
-                        .unwrap();
+                        }));
+                        state = if tx_leader.is_some() {
+                            QuorumState::Follower
+                        } else {
+                            QuorumState::LeaderTxAwait(req.vote_host.clone())
+                        };
+                        health_state.state = state.clone();
+                        health_state.tx_leader = tx_leader;
 
-                    // We only need to check again after the timeout, if we do not already have the
-                    // leader tx
-                    if state == QuorumState::LeaderDead {
-                        election_timeout_handler(tx_quorum.clone(), false);
+                        tx_remote
+                            .send_async(RpcRequest::LeaderReqAck {
+                                addr: req.vote_host,
+                                election_ts: req.election_ts,
+                            })
+                            .await
+                            .unwrap();
+
+                        // We only need to check again after the timeout, if we do not already have the
+                        // leader tx
+                        if state == QuorumState::LeaderDead {
+                            election_timeout_handler(tx_quorum.clone(), false);
+                        }
                     }
                 } else {
                     debug!(
@@ -848,6 +904,47 @@ pub(crate) async fn quorum_handler(
                         priority - ignoring it."
                     );
                 }
+
+                // if req.vote_host == whoami {
+                //     leader = Some(RegisteredLeader::Local(req.election_ts));
+                //     state = QuorumState::Leader;
+                //     health_state.state = QuorumState::Leader;
+                //     health_state.tx_leader = None;
+                // } else if do_switch {
+                //     let tx_leader = get_leader_tx(&hosts, &req.vote_host).await;
+                //     leader = Some(RegisteredLeader::Remote(RpcServer {
+                //         address: req.vote_host.clone(),
+                //         state: RpcServerState::Alive,
+                //         tx: tx_leader.clone(),
+                //         election_ts: req.election_ts,
+                //     }));
+                //     state = if tx_leader.is_some() {
+                //         QuorumState::Follower
+                //     } else {
+                //         QuorumState::LeaderTxAwait(req.vote_host.clone())
+                //     };
+                //     health_state.state = state.clone();
+                //     health_state.tx_leader = tx_leader;
+                //
+                //     tx_remote
+                //         .send_async(RpcRequest::LeaderReqAck {
+                //             addr: req.vote_host,
+                //             election_ts: req.election_ts,
+                //         })
+                //         .await
+                //         .unwrap();
+                //
+                //     // We only need to check again after the timeout, if we do not already have the
+                //     // leader tx
+                //     if state == QuorumState::LeaderDead {
+                //         election_timeout_handler(tx_quorum.clone(), false);
+                //     }
+                // } else {
+                //     debug!(
+                //         "Received a QuorumReq::LeaderSwitchPriority while still having a higher \
+                //         priority - ignoring it."
+                //     );
+                // }
 
                 log_cluster_info(&leader, &hosts, &whoami, &health, &state);
             }
@@ -940,7 +1037,7 @@ pub(crate) async fn quorum_handler(
 
                         match health {
                             // If quorum is good, just re-send the leader req
-                            QuorumHealth::Good => {
+                            QuorumHealth::Good | QuorumHealth::Degraded => {
                                 if let Err(err) = tx_remote
                                     .send_async(RpcRequest::LeaderReq {
                                         addr: whoami.clone(),
@@ -964,7 +1061,7 @@ pub(crate) async fn quorum_handler(
                         );
 
                         match health {
-                            QuorumHealth::Good => {
+                            QuorumHealth::Good | QuorumHealth::Degraded => {
                                 // safe to unwrap until `2262-04-11`
                                 let election_ts = Utc::now().timestamp_nanos_opt().unwrap();
                                 leader = Some(RegisteredLeader::Local(election_ts));
@@ -1008,7 +1105,7 @@ pub(crate) async fn quorum_handler(
                             })
                             .await
                         {
-                            error!("Error sending RpcRequest::LeaderLeader: {}", err);
+                            debug!("Error sending RpcRequest::LeaderLeader: {}", err);
                         }
                     }
                 }
@@ -1031,7 +1128,7 @@ pub(crate) async fn quorum_handler(
             tx_leader: health_state.tx_leader.clone(),
             connected_hosts: hosts.len(),
         })) {
-            error!("'tx_watch' update error: {}", err);
+            debug!("'tx_watch' update error: {}", err);
         }
     }
 
@@ -1061,9 +1158,9 @@ async fn check_leadership_conflict(
 
     if let Some((ts, addr)) = res {
         let req = if &ts_remote < ts {
-            warn!(
-                "{} received new LeaderReq with higher priority - switching",
-                whoami
+            info!(
+                "{} received new LeaderReq with higher priority - switching to {}",
+                whoami, addr_remote
             );
 
             // If we need to switch, we need to send the priority switch to ourselves, since the
@@ -1085,7 +1182,7 @@ async fn check_leadership_conflict(
             // To solve conflicts better, we send out a LeaderSwitch in this case to
             // also inform all others that we have the higher priority.
             // TODO should we keep doing this or does it even work without it too?
-            warn!(
+            debug!(
                 "{} received new LeaderReq with lower priority - sending out switch requests",
                 whoami
             );
