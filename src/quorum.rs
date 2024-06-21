@@ -1,17 +1,17 @@
+use std::collections::HashMap;
+use std::env;
+use std::time::Duration;
+
 use chrono::Utc;
 use lazy_static::lazy_static;
 use tokio::sync::{oneshot, watch};
 use tokio::time;
 use tracing::{debug, error, info, warn};
 
-use std::collections::HashMap;
-use std::env;
-use std::time::Duration;
-
-use crate::client::{RpcRequest, RECONNECT_TIMEOUT_UPPER};
+use crate::{CacheError, CacheReq, get_rand_between, rpc};
+use crate::client::{RECONNECT_TIMEOUT_UPPER, RpcRequest};
 use crate::rpc::cache;
 use crate::server::CacheMap;
-use crate::{get_rand_between, rpc, CacheError, CacheReq};
 
 lazy_static! {
     static ref ELECTION_TIMEOUT: u64 = {
@@ -360,7 +360,7 @@ pub(crate) async fn quorum_handler(
                     }
 
                     RpcServerState::Dead => {
-                        warn!("Lost connection with cache client: {}", server.address);
+                        debug!("Lost connection with cache client: {}", server.address);
 
                         hosts.remove(&server.address);
 
@@ -1256,7 +1256,7 @@ fn log_cluster_info(
         clients_list.push(c.0);
     }
 
-    info!(
+    debug!(
         r#"
 
     Cluster Leader: {}
