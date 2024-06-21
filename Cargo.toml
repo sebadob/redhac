@@ -1,6 +1,6 @@
 [package]
 name = "redhac"
-version = "0.10.3"
+version = "0.10.4"
 edition = "2021"
 rust-version = "1.70.0"
 license = "Apache-2.0 OR MIT"
