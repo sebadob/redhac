@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.10.4
+
+- reduced logging output - cluster info state is now being logged on debug level only to reduce output
+- Rust v1.79 clippy lints have been fixed
+
 ## v0.10.3
 
 - lower default values for:
