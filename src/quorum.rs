@@ -2,16 +2,15 @@ use std::collections::HashMap;
 use std::env;
 use std::time::Duration;
 
+use crate::client::{RpcRequest, RECONNECT_TIMEOUT_UPPER};
+use crate::rpc::cache;
+use crate::server::CacheMap;
+use crate::{get_rand_between, rpc, CacheError, CacheReq};
 use chrono::Utc;
 use lazy_static::lazy_static;
 use tokio::sync::{oneshot, watch};
 use tokio::time;
 use tracing::{debug, error, info, warn};
-
-use crate::{CacheError, CacheReq, get_rand_between, rpc};
-use crate::client::{RECONNECT_TIMEOUT_UPPER, RpcRequest};
-use crate::rpc::cache;
-use crate::server::CacheMap;
 
 lazy_static! {
     static ref ELECTION_TIMEOUT: u64 = {

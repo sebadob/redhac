@@ -1,11 +1,16 @@
+use crate::quorum::{AckLevel, RpcServer, RpcServerState};
+use crate::rpc::cache;
+use crate::rpc::cache::cache_client::CacheClient;
+use crate::rpc::cache::mgmt_ack::Method;
+use crate::rpc::cache::{ack, cache_request, CacheRequest};
+use crate::{get_cache_req_id, get_rand_between, CacheError, QuorumReq, TLS};
+use cached::Cached;
+use futures_util::TryStreamExt;
+use lazy_static::lazy_static;
 use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-
-use cached::Cached;
-use futures_util::TryStreamExt;
-use lazy_static::lazy_static;
 use tokio::sync::{mpsc, watch};
 use tokio::{fs, time};
 use tokio_stream::wrappers::ReceiverStream;
@@ -15,13 +20,6 @@ use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity, Uri};
 use tonic::{Request, Status};
 use tower::util::ServiceExt;
 use tracing::{debug, error, info, warn};
-
-use crate::quorum::{AckLevel, RpcServer, RpcServerState};
-use crate::rpc::cache;
-use crate::rpc::cache::cache_client::CacheClient;
-use crate::rpc::cache::mgmt_ack::Method;
-use crate::rpc::cache::{ack, cache_request, CacheRequest};
-use crate::{get_cache_req_id, get_rand_between, CacheError, QuorumReq, TLS};
 
 lazy_static! {
     static ref BUF_SIZE_CLIENT: usize = env::var("CACHE_BUF_CLIENT")
@@ -360,11 +358,12 @@ async fn run_client(
         });
 
         debug!("Starting the Sending Stream to the Server");
-        if let Err(err)= tx_quorum
+        if let Err(err) = tx_quorum
             .send_async(QuorumReq::UpdateServer {
                 server: server.clone(),
             })
-            .await {
+            .await
+        {
             // can fail in case of a conflict resolution, if the other side has just shut down
             debug!("tx_quorum send error: {:?}", err);
             callback_handle.abort();
@@ -372,7 +371,7 @@ async fn run_client(
                 *RECONNECT_TIMEOUT_LOWER,
                 *RECONNECT_TIMEOUT_UPPER,
             )))
-                .await;
+            .await;
             continue;
         }
 
@@ -696,10 +695,7 @@ async fn run_client(
             match res_stream.try_next().await {
                 Ok(recv) => {
                     if recv.is_none() {
-                        warn!(
-                            "Lost connection to remote cache host {}",
-                            host
-                        );
+                        warn!("Lost connection to remote cache host {}", host);
                         break;
                     }
 
