@@ -1,6 +1,6 @@
 [package]
 name = "redhac"
-version = "0.10.4"
+version = "0.10.5"
 edition = "2021"
 rust-version = "1.70.0"
 license = "Apache-2.0 OR MIT"
@@ -15,27 +15,26 @@ repository = "https://github.com/sebadob/redhac"
 anyhow = "1.0"
 async-stream = "0.3"
 bincode = "1"
-cached = { version = "0.51.3", features = ["async", "async_tokio_rt_multi_thread"] }
+cached = { version = "0.53.1", features = ["async", "async_tokio_rt_multi_thread"] }
 chrono = { version = "0.4.31", default-features = false, features = ["clock", "serde", "std"] }
 ctrlc = { version = "3", features = ["termination"] }
 dotenvy = "0.15"
 flume = "0.11"
 futures-core = "0.3"
 futures-util = "0.3"
-gethostname = "0.4"
+gethostname = "0.5"
 lazy_static = "1.1.1"
 nanoid = "0.4"
-prost = "0.12.1"
+prost = "0.13.1"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1.21.2", features = ["full"] }
 tokio-stream = "0.1.5"
-tonic = { version = "0.11.0", features = ["gzip", "tls", "tls-webpki-roots"] }
+tonic = { version = "0.12.1", features = ["gzip", "tls", "tls-webpki-roots"] }
 tower = "0.4"
 tracing = "0.1"
 
 # make minimal versions happy
-ahash = "0.8.0"
 flate2 = "1.0.6"
 crc32fast = "1.1.2"
 
@@ -46,4 +45,4 @@ tokio-test = "0.4"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "tracing"] }
 
 [build-dependencies]
-tonic-build = "0.11.0"
+tonic-build = "0.12.1"
