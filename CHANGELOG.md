@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.10.5
+
+- update external dependencies, one of them being tonic which internally now is using `hyper:1`
+
 ## v0.10.4
 
 - reduced logging output - cluster info state is now being logged on debug level only to reduce output
