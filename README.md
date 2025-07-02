@@ -1,3 +1,13 @@
+# Archived
+
+This project has been archived in favor of [hiqlite](https://github.com/sebadob/hiqlite). `redhac` had a few fundamental
+design issues which made it very sensitive to network issues like even a single dropped TCP packet, which would
+immediately trigger a leader switch and make it very "nervous".
+
+[hiqlite](https://github.com/sebadob/hiqlite) has a cache-only mode and was designed from the ground up after learning
+a lot from the issues made in `redhac`. If you need a HA, embeddable cache, take a look at it, disable default features
+and activate the `cache` feature only. [hiqlite](https://github.com/sebadob/hiqlite) is the better choice in every way.
+
 # redhac
 
 `redhac` is derived from **Rust Embedded Distributed Highly Available Cache**
@@ -55,7 +65,7 @@ use redhac::{cache_put, cache_recv, CacheConfig, SizedCache};
 #[tokio::main]
 async fn main() {
     let (_, mut cache_config) = CacheConfig::new();
-    
+
     // The cache name is used to reference the cache later on
     let cache_name = "my_cache";
     // We need to spawn a global handler for each cache instance.
@@ -63,13 +73,13 @@ async fn main() {
     cache_config.spawn_cache(
         cache_name.to_string(), SizedCache::with_size(16), None
     );
-    
+
     // Cache keys can only be `String`s at the time of writing.
     let key = "myKey";
     // The value you want to cache must implement `serde::Serialize`.
     // The serialization of the values is done with `bincode`.
     let value = "myCacheValue".to_string();
-    
+
     // At this point, we need cloned values to make everything work
     // nicely with networked connections. If you only ever need a 
     // local cache, you might be better off with using the `cached`
@@ -79,7 +89,7 @@ async fn main() {
     )
         .await
         .unwrap();
-    
+
     let res = cache_get!(
         // The type of the value we want to deserialize the value into
         String,
@@ -101,7 +111,7 @@ async fn main() {
     )
         .await
         .unwrap();
-    
+
     assert!(res.is_some());
     assert_eq!(res.unwrap(), value);
 }
@@ -117,7 +127,7 @@ infinitely. The ideal number of nodes is 3. You can scale this number up for ins
 if you like, but this has not been tested in greater detail so far.
 
 **Write performance** will degrade the more nodes you add to the cluster, since you simply need
-to wait for more Ack's from the other members.  
+to wait for more Ack's from the other members.
 
 **Read performance** however should stay the same.
 
@@ -156,25 +166,25 @@ HA_HOSTS="http://rauthy-0:8000, http://rauthy-1:8000 ,http://rauthy-2:8000"
 The way it works:
 
 1. **A node gets its own hostname from the OS**<br>
-This is the reason, why you use a StatefulSet for the deployment, even without any volumes
-attached. For a `StatefulSet` called `rauthy`, the replicas will always have the names `rauthy-0`,
-`rauthy-1`, ..., which are at the same time the hostnames inside the pod.
+   This is the reason, why you use a StatefulSet for the deployment, even without any volumes
+   attached. For a `StatefulSet` called `rauthy`, the replicas will always have the names `rauthy-0`,
+   `rauthy-1`, ..., which are at the same time the hostnames inside the pod.
 2. **Find "me" inside the `HA_HOSTS` variable**<br>
-If the hostname cannot be found in the `HA_HOSTS`, the application will panic and exit because
-of a misconfiguration.
+   If the hostname cannot be found in the `HA_HOSTS`, the application will panic and exit because
+   of a misconfiguration.
 3. **Use the port from the "me"-Entry that was found for the server part**<br>
-This means you do not need to specify the port in another variable which eliminates the risk of
-having inconsistencies
-or a bad config in that case.
+   This means you do not need to specify the port in another variable which eliminates the risk of
+   having inconsistencies
+   or a bad config in that case.
 4. **Extract "me" from the `HA_HOSTS`**<br>
-then take the leftover nodes as all cache members and connect to them
+   then take the leftover nodes as all cache members and connect to them
 5. **Once a quorum has been reached, a leader will be elected**<br>
-From that point on, the cache will start accepting requests
+   From that point on, the cache will start accepting requests
 6. **If the leader is lost - elect a new one - No values will be lost**
 7. **If quorum is lost, the cache will be invalidated**<br>
-This happens for security reasons to provide cache inconsistencies. Better invalidate the cache
-and fetch the values fresh from the DB or other cache members than working with possibly invalid
-values, which is especially true in an authn / authz situation.
+   This happens for security reasons to provide cache inconsistencies. Better invalidate the cache
+   and fetch the values fresh from the DB or other cache members than working with possibly invalid
+   values, which is especially true in an authn / authz situation.
 
 **NOTE:**<br>
 If you are in an environment where the described mechanism with extracting the hostname would
@@ -224,6 +234,7 @@ alias nioca='docker run --rm -it -v ./ca:/ca -u $(id -u ${USER}):$(id -g ${USER}
 ```
 
 To see the full feature set for more customization than mentioned below:
+
 ```
 nioca x509 -h
 ```
@@ -247,6 +258,7 @@ nioca x509 \
 ```
 
 You will be asked 6 times (yes, 6) for an at least 16 character password:
+
 - The first 3 times, you need to provide the encryption password for your Root CA
 - The last 3 times, you should provide a different password for your Intermediate CA
 
@@ -262,6 +274,7 @@ cp ca/x509/end_entity/$(cat ca/x509/end_entity/serial)/key.pem ./redhac.key.pem
 ```
 
 - You should have 3 files in `ls -l`:
+
 ```
 redhac.ca-chain.pem
 redhac.cert-chain.pem
@@ -269,6 +282,7 @@ redhac.key.pem
 ```
 
 **4. Create Kubernetes Secrets**
+
 ```
 kubectl create secret tls redhac-tls-server --key="redhac.key.pem" --cert="redhac.cert-chain.pem" && \
 kubectl create secret tls redhac-tls-client --key="redhac.key.pem" --cert="redhac.cert-chain.pem" && \
